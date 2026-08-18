@@ -1,12 +1,11 @@
-#include "QimageViewer.h"
-#include "ui_QimageViewer.h"
-#include <QFileDialog>
-#include <QWheelEvent>
+#include "ImgGraphicsView.h"
+
 #include <QMouseEvent>
 #include <QResizeEvent>
 #include <QScrollBar>
+#include <QWheelEvent>
 
-ImageViewer::ImageViewer(QWidget* parent)
+ImgGraphicsView::ImgGraphicsView(QWidget* parent)
     : QGraphicsView(parent)
     , m_scene(nullptr)
     , m_pixmapItem(nullptr)
@@ -25,7 +24,7 @@ ImageViewer::ImageViewer(QWidget* parent)
     setResizeAnchor(QGraphicsView::AnchorUnderMouse);
 }
 
-void ImageViewer::wheelEvent(QWheelEvent* event)
+void ImgGraphicsView::wheelEvent(QWheelEvent* event)
 {
     if (!m_pixmapItem)
         return;
@@ -39,7 +38,7 @@ void ImageViewer::wheelEvent(QWheelEvent* event)
     m_scaleFactor = transform().m11();
 }
 
-void ImageViewer::mousePressEvent(QMouseEvent* event)
+void ImgGraphicsView::mousePressEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::RightButton)
     {
@@ -61,7 +60,7 @@ void ImageViewer::mousePressEvent(QMouseEvent* event)
     QGraphicsView::mousePressEvent(event);
 }
 
-void ImageViewer::mouseMoveEvent(QMouseEvent* event)
+void ImgGraphicsView::mouseMoveEvent(QMouseEvent* event)
 {
     if (m_panning)
     {
@@ -80,7 +79,7 @@ void ImageViewer::mouseMoveEvent(QMouseEvent* event)
     QGraphicsView::mouseMoveEvent(event);
 }
 
-void ImageViewer::mouseReleaseEvent(QMouseEvent* event)
+void ImgGraphicsView::mouseReleaseEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::RightButton)
     {
@@ -99,76 +98,9 @@ void ImageViewer::mouseReleaseEvent(QMouseEvent* event)
     QGraphicsView::mouseReleaseEvent(event);
 }
 
-void ImageViewer::resizeEvent(QResizeEvent* event)
+void ImgGraphicsView::resizeEvent(QResizeEvent* event)
 {
     QGraphicsView::resizeEvent(event);
     if (m_pixmapItem)
         fitInView(m_pixmapItem, Qt::KeepAspectRatio);
 }
-
-void QimageViewer::on_Btn_LoadImage_clicked()
-{
-    QString fileName = QFileDialog::getOpenFileName(this, "Open Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)");
-    if (fileName.isEmpty())
-        return;
-
-    m_originalPixmap.load(fileName);
-    if (m_originalPixmap.isNull())
-        return;
-
-    ImageViewer* imageViewer = static_cast<ImageViewer*>(ui->graphic_MainWindow);
-
-    static bool connected = false;
-    if (!connected)
-    {
-        connect(imageViewer, &ImageViewer::roiSelected, this, &QimageViewer::onROISelected);
-        connected = true;
-    }
-
-    imageViewer->scene()->clear();
-    imageViewer->m_pixmapItem = imageViewer->scene()->addPixmap(m_originalPixmap);
-    imageViewer->m_roiItem = nullptr;
-    imageViewer->fitInView(imageViewer->m_pixmapItem, Qt::KeepAspectRatio);
-    imageViewer->m_scaleFactor = 1.0;
-
-    if (!m_roiScene)
-    {
-        m_roiScene = new QGraphicsScene(this);
-        m_roiPixmapItem = m_roiScene->addPixmap(QPixmap());
-        QGraphicsView* roiView = new QGraphicsView(m_roiScene, this);
-        roiView->setMinimumSize(300, 300);
-        ui->gridLayout->addWidget(roiView, 0, 1);
-    }
-}
-
-void QimageViewer::onROISelected(const QRectF& roiRect)
-{
-    if (m_originalPixmap.isNull())
-        return;
-
-    QRect imageRect = m_originalPixmap.rect();
-    QRectF normalizedROI = roiRect.intersected(QRectF(imageRect));
-
-    QPixmap roiPixmap = m_originalPixmap.copy(normalizedROI.toRect());
-    if (!roiPixmap.isNull())
-    {
-        m_roiPixmapItem->setPixmap(roiPixmap.scaled(300, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-        m_roiScene->setSceneRect(m_roiPixmapItem->boundingRect());
-    }
-}
-
-QimageViewer::QimageViewer(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::QimageViewerClass())
-    , m_roiScene(nullptr)
-    , m_roiPixmapItem(nullptr)
-{
-    ui->setupUi(this);
-}
-
-QimageViewer::~QimageViewer()
-{
-    delete ui;
-}
-
-

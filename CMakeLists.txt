@@ -36,21 +36,24 @@ endif()
 qt_standard_project_setup()
 
 set(PROJECT_SOURCES
-    main.cpp
-    QimageViewer.ui
-    QimageViewer.h
-    QimageViewer.cpp
+    source/main.cpp
+    source/QimageViewer.cpp
+    source/ImgGraphicsView.cpp
+    include/QimageViewer.h
+    include/ImgGraphicsView.h
+    uidesign/QimageViewer.ui
 )
 
 qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES
+        AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/uidesign
         WIN32_EXECUTABLE TRUE
 )
 

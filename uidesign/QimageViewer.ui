@@ -16,7 +16,7 @@
     <widget class="QWidget" name="centralWidget">
      <layout class="QGridLayout" name="gridLayout">
       <item row="0" column="0">
-       <widget class="ImageViewer" name="graphic_MainWindow"/>
+       <widget class="ImgGraphicsView" name="graphic_MainWindow"/>
       </item>
      <item row="0" column="1">
       <widget class="QLabel" name="label_ROI">
@@ -80,9 +80,9 @@
   </widget>
   <customwidgets>
    <customwidget>
-    <class>ImageViewer</class>
+    <class>ImgGraphicsView</class>
     <extends>QGraphicsView</extends>
-    <header>QimageViewer.h</header>
+    <header>ImgGraphicsView.h</header>
    </customwidget>
   </customwidgets>
   <layoutdefault spacing="6" margin="11"/>
