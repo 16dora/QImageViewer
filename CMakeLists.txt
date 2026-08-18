@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(QimageViewer LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
@@ -54,25 +55,15 @@ if(QT_VERSION VERSION_LESS 6.3)
     endmacro()
 endif()
 
-if(QT_VERSION VERSION_LESS 6.0)
-    macro(qt_add_executable name)
-        if(ANDROID)
-            add_library(${name} SHARED ${ARGN})
-        else()
-            add_executable(${ARGV})
-        endif()
-    endmacro()
-endif()
-
 qt_standard_project_setup()
 
 set(PROJECT_SOURCES
     source/main.cpp
-    source/QimageViewer.cpp
-    source/ImgGraphicsView.cpp
-    include/QimageViewer.h
-    include/ImgGraphicsView.h
-    uidesign/QimageViewer.ui
+    source/image_viewer_window.cpp
+    source/img_graphics_view.cpp
+    include/image_viewer_window.h
+    include/img_graphics_view.h
+    uidesign/image_viewer_window.ui
 )
 
 qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
@@ -89,7 +80,7 @@ set_target_properties(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME}
-    PUBLIC
+    PRIVATE
         Qwt::Qwt
         Qt::Core
         Qt::Gui
