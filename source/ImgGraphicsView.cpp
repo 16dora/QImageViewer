@@ -36,6 +36,17 @@ void ImgGraphicsView::wheelEvent(QWheelEvent* event)
         scale(1.0 / scaleFactor, 1.0 / scaleFactor);
 
     m_scaleFactor = transform().m11();
+    emit zoomChanged(m_scaleFactor);
+}
+
+void ImgGraphicsView::fitImageInView()
+{
+    if (!m_pixmapItem)
+        return;
+
+    fitInView(m_pixmapItem, Qt::KeepAspectRatio);
+    m_scaleFactor = transform().m11();
+    emit zoomChanged(m_scaleFactor);
 }
 
 void ImgGraphicsView::mousePressEvent(QMouseEvent* event)
@@ -101,6 +112,5 @@ void ImgGraphicsView::mouseReleaseEvent(QMouseEvent* event)
 void ImgGraphicsView::resizeEvent(QResizeEvent* event)
 {
     QGraphicsView::resizeEvent(event);
-    if (m_pixmapItem)
-        fitInView(m_pixmapItem, Qt::KeepAspectRatio);
+    fitImageInView();
 }

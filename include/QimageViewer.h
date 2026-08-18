@@ -21,6 +21,7 @@ public:
 private slots:
     void on_Btn_LoadImage_clicked();
     void onROISelected(const QRectF& roiRect);
+    void onZoomChanged(double scaleFactor);
 
 private:
     Ui::QimageViewerClass *ui;

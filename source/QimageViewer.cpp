@@ -10,6 +10,8 @@ QimageViewer::QimageViewer(QWidget *parent)
     , m_roiPixmapItem(nullptr)
 {
     ui->setupUi(this);
+    connect(ui->graphic_MainWindow, &ImgGraphicsView::zoomChanged,
+            this, &QimageViewer::onZoomChanged);
 }
 
 QimageViewer::~QimageViewer()
@@ -39,8 +41,7 @@ void QimageViewer::on_Btn_LoadImage_clicked()
     imageViewer->scene()->clear();
     imageViewer->m_pixmapItem = imageViewer->scene()->addPixmap(m_originalPixmap);
     imageViewer->m_roiItem = nullptr;
-    imageViewer->fitInView(imageViewer->m_pixmapItem, Qt::KeepAspectRatio);
-    imageViewer->m_scaleFactor = 1.0;
+    imageViewer->fitImageInView();
 
     if (!m_roiScene)
     {
@@ -50,6 +51,11 @@ void QimageViewer::on_Btn_LoadImage_clicked()
         roiView->setMinimumSize(300, 300);
         ui->gridLayout->addWidget(roiView, 0, 1);
     }
+}
+
+void QimageViewer::onZoomChanged(double scaleFactor)
+{
+    ui->label_Zoom->setText(QString("Zoom: %1x").arg(scaleFactor, 0, 'f', 2));
 }
 
 void QimageViewer::onROISelected(const QRectF& roiRect)
@@ -67,5 +73,4 @@ void QimageViewer::onROISelected(const QRectF& roiRect)
         m_roiScene->setSceneRect(m_roiPixmapItem->boundingRect());
     }
 }
-
 

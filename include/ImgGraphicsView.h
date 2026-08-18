@@ -13,6 +13,7 @@ class ImgGraphicsView : public QGraphicsView
 
 public:
     ImgGraphicsView(QWidget* parent = nullptr);
+    void fitImageInView();
 
     QGraphicsScene* m_scene;
     QGraphicsPixmapItem* m_pixmapItem;
@@ -32,4 +33,5 @@ protected:
 
 signals:
     void roiSelected(const QRectF& roiRect);
+    void zoomChanged(double scaleFactor);
 };
