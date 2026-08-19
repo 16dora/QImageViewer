@@ -123,22 +123,18 @@ qreal ImgGraphicsView::currentViewScale() const
     return qMax(std::abs(transform().m11()), 1.0e-9);
 }
 
-// 按分段规则计算覆盖图形在场景坐标中的宽度。
-qreal ImgGraphicsView::calculateOverlaySceneWidth() const
+// 将固定四个视图像素换算为当前场景坐标中的Pick边长。
+qreal ImgGraphicsView::calculatePickMarkerSceneSize() const
 {
-    const qreal scaleFactor = currentViewScale();
-    if (scaleFactor < 1.0)
-    {
-        return OVERLAY_PEN_WIDTH_VIEW_PIXELS / scaleFactor;
-    }
-
-    return OVERLAY_PEN_WIDTH_IMAGE_PIXELS;
+    return PICK_MARKER_SIZE_VIEW_PIXELS / currentViewScale();
 }
 
-// 使用当前倍率创建不改变图形颜色的覆盖画笔。
+// 创建固定两个视图像素宽度且不改变图形颜色的覆盖画笔。
 QPen ImgGraphicsView::createOverlayPen(const QColor& color) const
 {
-    return QPen(color, calculateOverlaySceneWidth());
+    QPen overlayPen(color, OVERLAY_PEN_WIDTH_VIEW_PIXELS);
+    overlayPen.setCosmetic(true);
+    return overlayPen;
 }
 
 // 缩放后同步ROI、普通图形、实时预览和Pick标记外观。
@@ -154,17 +150,19 @@ void ImgGraphicsView::updateOverlayAppearance()
         if (m_activeDrawingMode == ToolMode::Line)
         {
             static_cast<QGraphicsLineItem*>(m_drawingPreviewItemPtr)
-                ->setPen(createOverlayPen(Qt::blue));
+                ->setPen(createOverlayPen(QColorConstants::Svg::skyblue));
         }
         else if (m_activeDrawingMode == ToolMode::Circle)
         {
             static_cast<QGraphicsEllipseItem*>(m_drawingPreviewItemPtr)
-                ->setPen(createOverlayPen(Qt::blue));
+                ->setPen(createOverlayPen(QColorConstants::Svg::skyblue));
         }
         else
         {
             const QColor previewColor =
-                m_activeDrawingMode == ToolMode::Roi ? Qt::red : Qt::blue;
+                m_activeDrawingMode == ToolMode::Roi
+                    ? Qt::red
+                    : QColorConstants::Svg::skyblue;
             static_cast<QGraphicsRectItem*>(m_drawingPreviewItemPtr)
                 ->setPen(createOverlayPen(previewColor));
         }
@@ -175,23 +173,23 @@ void ImgGraphicsView::updateOverlayAppearance()
         if (drawingItem.toolMode == ToolMode::Line)
         {
             static_cast<QGraphicsLineItem*>(drawingItem.itemPtr)
-                ->setPen(createOverlayPen(Qt::blue));
+                ->setPen(createOverlayPen(QColorConstants::Svg::skyblue));
         }
         else if (drawingItem.toolMode == ToolMode::Circle)
         {
             static_cast<QGraphicsEllipseItem*>(drawingItem.itemPtr)
-                ->setPen(createOverlayPen(Qt::blue));
+                ->setPen(createOverlayPen(QColorConstants::Svg::skyblue));
         }
         else
         {
             static_cast<QGraphicsRectItem*>(drawingItem.itemPtr)
-                ->setPen(createOverlayPen(Qt::blue));
+                ->setPen(createOverlayPen(QColorConstants::Svg::skyblue));
         }
     }
 
     if (m_pickItemPtr != nullptr)
     {
-        const qreal markerSize = calculateOverlaySceneWidth();
+        const qreal markerSize = calculatePickMarkerSceneSize();
         m_pickItemPtr->setRect(
             m_pickSceneCenter.x() - markerSize / 2.0,
             m_pickSceneCenter.y() - markerSize / 2.0,
@@ -246,20 +244,20 @@ void ImgGraphicsView::beginDrawing(
     {
         m_drawingPreviewItemPtr = m_scenePtr->addLine(
             QLineF(m_drawingStartPos, m_drawingStartPos),
-            createOverlayPen(Qt::blue));
+            createOverlayPen(QColorConstants::Svg::skyblue));
     }
     else if (toolMode == ToolMode::Circle)
     {
         m_drawingPreviewItemPtr = m_scenePtr->addEllipse(
             QRectF(m_drawingStartPos, m_drawingStartPos),
-            createOverlayPen(Qt::blue),
+            createOverlayPen(QColorConstants::Svg::skyblue),
             Qt::NoBrush);
     }
     else if (toolMode == ToolMode::Rect)
     {
         m_drawingPreviewItemPtr = m_scenePtr->addRect(
             QRectF(m_drawingStartPos, m_drawingStartPos),
-            createOverlayPen(Qt::blue),
+            createOverlayPen(QColorConstants::Svg::skyblue),
             Qt::NoBrush);
     }
 
@@ -279,7 +277,8 @@ void ImgGraphicsView::updateDrawingPreview(const QPointF& scenePosition)
 
     const QPointF currentScenePosition =
         constrainScenePositionToImage(scenePosition);
-    if (m_activeDrawingMode == ToolMode::Roi)
+    if (m_activeDrawingMode == ToolMode::Roi
+        || m_activeDrawingMode == ToolMode::Rect)
     {
         static_cast<QGraphicsRectItem*>(m_drawingPreviewItemPtr)
             ->setRect(QRectF(m_drawingStartPos, currentScenePosition).normalized());
@@ -315,17 +314,6 @@ void ImgGraphicsView::updateDrawingPreview(const QPointF& scenePosition)
         return;
     }
 
-    const qreal halfWidth = qMin(
-        std::abs(currentScenePosition.x() - m_drawingStartPos.x()),
-        maximumHalfWidth);
-    const qreal halfHeight = qMin(
-        std::abs(currentScenePosition.y() - m_drawingStartPos.y()),
-        maximumHalfHeight);
-    static_cast<QGraphicsRectItem*>(m_drawingPreviewItemPtr)->setRect(
-        m_drawingStartPos.x() - halfWidth,
-        m_drawingStartPos.y() - halfHeight,
-        halfWidth * 2.0,
-        halfHeight * 2.0);
 }
 
 // 删除未提交预览并结束当前左键操作。
@@ -574,7 +562,9 @@ void ImgGraphicsView::pickPixelAt(const QPointF& scenePosition)
     if (m_pickItemPtr == nullptr)
     {
         m_pickItemPtr = m_scenePtr->addRect(
-            QRectF(), QPen(Qt::NoPen), QBrush(Qt::blue));
+            QRectF(),
+            QPen(Qt::NoPen),
+            QBrush(QColorConstants::Svg::skyblue));
         m_pickItemPtr->setZValue(3.0);
     }
     updateOverlayAppearance();

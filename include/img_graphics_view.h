@@ -103,11 +103,11 @@ private:
     // ROI有效选择的最小边长，单位为场景坐标。
     static constexpr qreal MIN_ROI_SIZE = 5.0;
 
-    // 图片缩小时覆盖线条保持的宽度，单位为视图像素。
+    // 所有覆盖线条固定保持的宽度，单位为视图像素。
     static constexpr qreal OVERLAY_PEN_WIDTH_VIEW_PIXELS = 2.0;
 
-    // 图片达到或超过一比一显示后覆盖的图像像素宽度。
-    static constexpr qreal OVERLAY_PEN_WIDTH_IMAGE_PIXELS = 1.0;
+    // Pick标记固定保持的边长，单位为视图像素。
+    static constexpr qreal PICK_MARKER_SIZE_VIEW_PIXELS = 4.0;
 
     // 图形单选使用的不可见命中半径，单位为视图像素。
     static constexpr qreal SELECTION_HIT_TOLERANCE_VIEW_PIXELS = 5.0;
@@ -146,13 +146,13 @@ private:
     qreal currentViewScale() const;
 
     // 输入：无。
-    // 输出：当前倍率对应的覆盖图形场景线宽。
-    // 作用：缩小时保持两个视图像素，一比一后覆盖一个图像像素。
-    qreal calculateOverlaySceneWidth() const;
+    // 输出：当前倍率对应的Pick标记场景边长。
+    // 作用：将固定四个视图像素换算为当前场景边长。
+    qreal calculatePickMarkerSceneSize() const;
 
     // 输入：画笔颜色。
-    // 输出：符合当前倍率规则的覆盖图形画笔。
-    // 作用：统一ROI和普通绘图对象的显示粗度。
+    // 输出：固定两个视图像素宽度的覆盖图形画笔。
+    // 作用：统一ROI和普通绘图对象的固定显示粗度。
     QPen createOverlayPen(const QColor& color) const;
 
     // 输入：无。
@@ -230,7 +230,7 @@ private:
 
     // 输入：当前画布中的点击坐标。
     // 输出：无。
-    // 作用：映射并显示唯一Pick点，黑色无效区会清除旧Pick。
+    // 作用：映射并显示唯一天蓝色Pick点，黑色无效区会清除旧Pick。
     void pickPixelAt(const QPointF& scenePosition);
 
     // 输入：无。
