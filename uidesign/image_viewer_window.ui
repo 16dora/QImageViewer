@@ -39,12 +39,18 @@
           <item>
            <layout class="QHBoxLayout" name="layout_imageTools">
             <item>
-             <widget class="QToolButton" name="tbtn_opticsPan">
+             <widget class="QToolButton" name="tbtn_opticsChooseROI">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
               <property name="toolTip">
-               <string>Pan image</string>
+               <string>Draw rectangle</string>
               </property>
               <property name="text">
-               <string>Pan</string>
+               <string>ROI</string>
               </property>
               <property name="checkable">
                <bool>true</bool>
@@ -97,7 +103,7 @@
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
-              <property name="toolTip">
+             <property name="toolTip">
                <string>Draw rectangle</string>
               </property>
               <property name="text">
@@ -111,7 +117,55 @@
               </attribute>
              </widget>
             </item>
+            <item>
+             <widget class="QToolButton" name="tbtn_opticsChooseROI_2">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+             <property name="toolTip">
+               <string>Pick pixel</string>
+              </property>
+              <property name="text">
+               <string>Pick</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <attribute name="buttonGroup">
+               <string notr="true">buttonGroup_imageToolMode</string>
+              </attribute>
+             </widget>
+            </item>
            </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_PickedPixel">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>X: --,Y:--</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="tbtn_opticsZoomOut_2">
+            <property name="toolTip">
+             <string>Zoom out</string>
+            </property>
+            <property name="text">
+             <string>Reset</string>
+            </property>
+           </widget>
           </item>
           <item>
            <widget class="QLabel" name="label_zoom">
@@ -126,36 +180,6 @@
             </property>
             <property name="alignment">
              <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QToolButton" name="tbtn_opticsZoomIn">
-            <property name="toolTip">
-             <string>Zoom in</string>
-            </property>
-            <property name="text">
-             <string>Zoom +</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QToolButton" name="tbtn_opticsZoomOut">
-            <property name="toolTip">
-             <string>Zoom out</string>
-            </property>
-            <property name="text">
-             <string>Zoom -</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QToolButton" name="tbtn_opticsZoomOut_2">
-            <property name="toolTip">
-             <string>Zoom out</string>
-            </property>
-            <property name="text">
-             <string>Reset</string>
             </property>
            </widget>
           </item>
@@ -234,7 +258,7 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>1</number>
+           <number>2</number>
           </property>
           <widget class="QWidget" name="ImgProcess" native="true">
            <attribute name="title">
@@ -508,6 +532,10 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_imageToolMode"/>
+  <buttongroup name="buttonGroup_imageToolMode">
+   <property name="exclusive">
+    <bool>true</bool>
+   </property>
+  </buttongroup>
  </buttongroups>
 </ui>

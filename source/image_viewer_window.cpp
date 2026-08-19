@@ -3,6 +3,7 @@
 #include "img_graphics_view.h"
 #include "ui_image_viewer_window.h"
 
+#include <QButtonGroup>
 #include <QFileDialog>
 #include <QPainter>
 #include <QPainterPath>
@@ -20,6 +21,25 @@ ImageViewerWindow::ImageViewerWindow(QWidget* parent)
     , m_currentRotationAngleDegree(0.0)
 {
     m_uiPtr->setupUi(this);
+    m_uiPtr->buttonGroup_imageToolMode->setId(
+        m_uiPtr->tbtn_opticsChooseROI,
+        static_cast<int>(ImgGraphicsView::ToolMode::Roi));
+    m_uiPtr->buttonGroup_imageToolMode->setId(
+        m_uiPtr->tbtn_opticsDrawLine,
+        static_cast<int>(ImgGraphicsView::ToolMode::Line));
+    m_uiPtr->buttonGroup_imageToolMode->setId(
+        m_uiPtr->tbtn_opticsDrawCircle,
+        static_cast<int>(ImgGraphicsView::ToolMode::Circle));
+    m_uiPtr->buttonGroup_imageToolMode->setId(
+        m_uiPtr->tbtn_opticsDrawRect,
+        static_cast<int>(ImgGraphicsView::ToolMode::Rect));
+    m_uiPtr->buttonGroup_imageToolMode->setId(
+        m_uiPtr->tbtn_opticsChooseROI_2,
+        static_cast<int>(ImgGraphicsView::ToolMode::Pick));
+    connect(m_uiPtr->buttonGroup_imageToolMode,
+            &QButtonGroup::idClicked,
+            this,
+            &ImageViewerWindow::onImageToolModeButtonClicked);
     connect(m_uiPtr->gview_mainImage,
             &ImgGraphicsView::zoomChanged,
             this,
@@ -28,6 +48,15 @@ ImageViewerWindow::ImageViewerWindow(QWidget* parent)
             &ImgGraphicsView::roiSelected,
             this,
             &ImageViewerWindow::onRoiSelected);
+    connect(m_uiPtr->gview_mainImage,
+            &ImgGraphicsView::pixelPicked,
+            this,
+            &ImageViewerWindow::onPixelPicked);
+    connect(m_uiPtr->gview_mainImage,
+            &ImgGraphicsView::pixelPickCleared,
+            this,
+            &ImageViewerWindow::onPixelPickCleared);
+    m_uiPtr->gview_mainImage->setToolMode(ImgGraphicsView::ToolMode::Roi);
 }
 
 // 使用默认析构释放智能指针管理的UI对象。
@@ -64,9 +93,13 @@ void ImageViewerWindow::on_btn_loadImage_clicked()
     m_originalPixmap = loadedPixmap;
     m_currentPixmap = m_originalPixmap;
     m_validImagePolygon = QPolygonF(QRectF(m_originalPixmap.rect()));
+    m_currentToOriginalTransform = QTransform();
     m_currentRotationAngleDegree = 0.0;
     m_uiPtr->cbox_rotationAngleDegree->setCurrentIndex(0);
-    m_uiPtr->gview_mainImage->setImage(m_currentPixmap);
+    m_uiPtr->gview_mainImage->setImage(
+        m_currentPixmap,
+        m_currentToOriginalTransform,
+        m_originalPixmap.size());
     resetRoiPreview();
 }
 
@@ -88,8 +121,11 @@ void ImageViewerWindow::on_btn_rotateImage_clicked()
     }
 
     QPolygonF validImagePolygon;
+    QTransform currentToOriginalTransform;
     const QPixmap rotatedPixmap = createRotatedPixmap(
-        selectedRotationAngleDegree, &validImagePolygon);
+        selectedRotationAngleDegree,
+        &validImagePolygon,
+        &currentToOriginalTransform);
     if (rotatedPixmap.isNull())
     {
         return;
@@ -97,17 +133,24 @@ void ImageViewerWindow::on_btn_rotateImage_clicked()
 
     m_currentPixmap = rotatedPixmap;
     m_validImagePolygon = validImagePolygon;
+    m_currentToOriginalTransform = currentToOriginalTransform;
     m_currentRotationAngleDegree = selectedRotationAngleDegree;
-    m_uiPtr->gview_mainImage->setImage(m_currentPixmap);
+    m_uiPtr->gview_mainImage->setImage(
+        m_currentPixmap,
+        m_currentToOriginalTransform,
+        m_originalPixmap.size());
     resetRoiPreview();
 }
 
 // 始终从原图生成指定绝对角度的黑色背景旋转图片。
 QPixmap ImageViewerWindow::createRotatedPixmap(
     double rotationAngleDegree,
-    QPolygonF* validImagePolygonPtr) const
+    QPolygonF* validImagePolygonPtr,
+    QTransform* currentToOriginalTransformPtr) const
 {
-    if (m_originalPixmap.isNull() || validImagePolygonPtr == nullptr)
+    if (m_originalPixmap.isNull()
+        || validImagePolygonPtr == nullptr
+        || currentToOriginalTransformPtr == nullptr)
     {
         return QPixmap();
     }
@@ -115,6 +158,7 @@ QPixmap ImageViewerWindow::createRotatedPixmap(
     if (qAbs(rotationAngleDegree) < ROTATION_ANGLE_EPSILON)
     {
         *validImagePolygonPtr = QPolygonF(QRectF(m_originalPixmap.rect()));
+        *currentToOriginalTransformPtr = QTransform();
         return m_originalPixmap;
     }
 
@@ -126,6 +170,13 @@ QPixmap ImageViewerWindow::createRotatedPixmap(
         m_originalPixmap.height());
     *validImagePolygonPtr = adjustedRotationTransform.map(
         QPolygonF(QRectF(m_originalPixmap.rect())));
+    bool isInvertible = false;
+    *currentToOriginalTransformPtr =
+        adjustedRotationTransform.inverted(&isInvertible);
+    if (!isInvertible)
+    {
+        return QPixmap();
+    }
 
     const QPixmap transformedPixmap = m_originalPixmap.transformed(
         rotationTransform, Qt::SmoothTransformation);
@@ -233,6 +284,29 @@ void ImageViewerWindow::drawRoiValidContentOutline(
 void ImageViewerWindow::onZoomChanged(double scaleFactor)
 {
     m_uiPtr->label_zoom->setText(tr("Zoom: %1x").arg(scaleFactor, 0, 'f', 2));
+}
+
+// 将按钮组编号转换为图片视图工具模式。
+void ImageViewerWindow::onImageToolModeButtonClicked(int buttonId)
+{
+    m_uiPtr->gview_mainImage->setToolMode(
+        static_cast<ImgGraphicsView::ToolMode>(buttonId));
+    m_uiPtr->gview_mainImage->setFocus(Qt::ShortcutFocusReason);
+}
+
+// 显示Pick到的原图零基整数像素坐标。
+void ImageViewerWindow::onPixelPicked(const QPoint& originalPixelPosition)
+{
+    m_uiPtr->label_PickedPixel->setText(
+        tr("X: %1,Y:%2")
+            .arg(originalPixelPosition.x())
+            .arg(originalPixelPosition.y()));
+}
+
+// 将Pick标签恢复为无有效点状态。
+void ImageViewerWindow::onPixelPickCleared()
+{
+    m_uiPtr->label_PickedPixel->setText(tr("X: --,Y:--"));
 }
 
 } // namespace image_viewer

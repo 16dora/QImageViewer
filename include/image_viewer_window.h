@@ -2,9 +2,11 @@
 
 #include <QMainWindow>
 #include <QPixmap>
+#include <QPoint>
 #include <QPolygonF>
 #include <QRect>
 #include <QRectF>
+#include <QTransform>
 
 #include <memory>
 
@@ -38,6 +40,15 @@ private slots:
     // 接收实际缩放倍率并更新倍率Label。
     void onZoomChanged(double scaleFactor);
 
+    // 接收工具按钮组编号并切换图片视图左键模式。
+    void onImageToolModeButtonClicked(int buttonId);
+
+    // 接收Pick到的原图零基像素坐标并更新标签。
+    void onPixelPicked(const QPoint& originalPixelPosition);
+
+    // Pick点被清除后将坐标标签恢复为无效状态。
+    void onPixelPickCleared();
+
 private:
     // 图片加载失败时使用的错误码。
     static constexpr int IMAGE_LOAD_ERROR_CODE = 1001;
@@ -57,12 +68,13 @@ private:
     // 蓝色轮廓相对ROI预览边缘的内缩距离，单位为预览像素。
     static constexpr qreal ROI_VALID_CONTENT_INSET = 0.5;
 
-    // 输入：目标顺时针旋转角度和有效内容多边形输出指针。
+    // 输入：目标顺时针旋转角度、有效内容多边形和逆变换输出指针。
     // 输出：使用黑色背景承载的旋转图片。
-    // 作用：始终从原图生成指定绝对角度的当前图片。
+    // 作用：始终从原图生成指定绝对角度的当前图片及Pick坐标变换。
     QPixmap createRotatedPixmap(
         double rotationAngleDegree,
-        QPolygonF* validImagePolygonPtr) const;
+        QPolygonF* validImagePolygonPtr,
+        QTransform* currentToOriginalTransformPtr) const;
 
     // 输入：无。
     // 输出：无。
@@ -81,6 +93,7 @@ private:
     QPixmap m_currentPixmap;                       // 当前绝对角度对应的旋转图片。
     QPixmap m_currentRoiPixmap;                    // 不包含蓝色标记的当前ROI数据。
     QPolygonF m_validImagePolygon;                 // 旋转后真实原图内容的闭合轮廓。
+    QTransform m_currentToOriginalTransform;       // 当前旋转画布到原图的Pick变换。
     double m_currentRotationAngleDegree;           // 当前顺时针绝对旋转角度。
 };
 
