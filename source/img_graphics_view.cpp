@@ -33,6 +33,7 @@ void ImgGraphicsView::setImage(const QPixmap& pixmap)
 {
     m_scenePtr->clear();
     m_pixmapItemPtr = m_scenePtr->addPixmap(pixmap);
+    m_scenePtr->setSceneRect(m_pixmapItemPtr->sceneBoundingRect());
     m_roiItemPtr = nullptr;
     fitImageInView();
 }
@@ -74,6 +75,21 @@ void ImgGraphicsView::fitImageInView()
 void ImgGraphicsView::emitCurrentZoom()
 {
     emit zoomChanged(transform().m11());
+}
+
+// 将场景坐标限制在当前图片外接矩形范围内。
+QPointF ImgGraphicsView::constrainScenePositionToImage(
+    const QPointF& scenePosition) const
+{
+    if (m_pixmapItemPtr == nullptr)
+    {
+        return scenePosition;
+    }
+
+    const QRectF imageSceneRect = m_pixmapItemPtr->sceneBoundingRect();
+    return QPointF(
+        qBound(imageSceneRect.left(), scenePosition.x(), imageSceneRect.right()),
+        qBound(imageSceneRect.top(), scenePosition.y(), imageSceneRect.bottom()));
 }
 
 // 判断图片显示区域是否在任一方向超出当前视口。
@@ -172,15 +188,20 @@ void ImgGraphicsView::mousePressEvent(QMouseEvent* eventPtr)
     }
     else if (eventPtr->button() == Qt::LeftButton && m_pixmapItemPtr != nullptr)
     {
-        m_isDrawingRoi = true;
-        m_roiStartPos = mapToScene(eventPtr->position().toPoint());
-        if (m_roiItemPtr == nullptr)
+        const QPointF scenePosition =
+            mapToScene(eventPtr->position().toPoint());
+        if (m_pixmapItemPtr->sceneBoundingRect().contains(scenePosition))
         {
-            m_roiItemPtr = m_scenePtr->addRect(
-                QRectF(), QPen(Qt::red, ROI_PEN_WIDTH));
-            m_roiItemPtr->setZValue(1.0);
+            m_isDrawingRoi = true;
+            m_roiStartPos = scenePosition;
+            if (m_roiItemPtr == nullptr)
+            {
+                m_roiItemPtr = m_scenePtr->addRect(
+                    QRectF(), QPen(Qt::red, ROI_PEN_WIDTH));
+                m_roiItemPtr->setZValue(1.0);
+            }
+            m_roiItemPtr->setRect(QRectF(m_roiStartPos, m_roiStartPos));
         }
-        m_roiItemPtr->setRect(QRectF(m_roiStartPos, m_roiStartPos));
     }
 
     QGraphicsView::mousePressEvent(eventPtr);
@@ -200,7 +221,8 @@ void ImgGraphicsView::mouseMoveEvent(QMouseEvent* eventPtr)
     }
     else if (m_isDrawingRoi && m_roiItemPtr != nullptr)
     {
-        const QPointF currentScenePos = mapToScene(currentViewPos);
+        const QPointF currentScenePos = constrainScenePositionToImage(
+            mapToScene(currentViewPos));
         const QRectF roiRect = QRectF(m_roiStartPos, currentScenePos).normalized();
         m_roiItemPtr->setRect(roiRect);
     }
@@ -221,7 +243,11 @@ void ImgGraphicsView::mouseReleaseEvent(QMouseEvent* eventPtr)
              && m_roiItemPtr != nullptr)
     {
         m_isDrawingRoi = false;
-        const QRectF roiRect = m_roiItemPtr->rect();
+        const QPointF releaseScenePosition = constrainScenePositionToImage(
+            mapToScene(eventPtr->position().toPoint()));
+        const QRectF roiRect =
+            QRectF(m_roiStartPos, releaseScenePosition).normalized();
+        m_roiItemPtr->setRect(roiRect);
         if (roiRect.width() > MIN_ROI_SIZE && roiRect.height() > MIN_ROI_SIZE)
         {
             emit roiSelected(roiRect);

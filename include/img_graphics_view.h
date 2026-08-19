@@ -92,6 +92,11 @@ private:
     // 作用：读取视图变换并发送实际倍率。
     void emitCurrentZoom();
 
+    // 输入：需要限制的场景坐标。
+    // 输出：限制在当前图片画布范围内的场景坐标。
+    // 作用：防止ROI红框越过当前图片外接矩形。
+    QPointF constrainScenePositionToImage(const QPointF& scenePosition) const;
+
     // 输入：无。
     // 输出：当前是否需要显示缩略导航图。
     // 作用：判断图片显示区域是否在任一方向超出视口。

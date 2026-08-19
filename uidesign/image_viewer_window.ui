@@ -234,7 +234,7 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
           <widget class="QWidget" name="ImgProcess" native="true">
            <attribute name="title">
@@ -337,7 +337,7 @@
             <item row="0" column="0">
              <widget class="QLabel" name="label">
               <property name="text">
-               <string>RoateAngle</string>
+               <string>RotateAngle</string>
               </property>
              </widget>
             </item>
