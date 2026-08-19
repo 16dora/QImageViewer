@@ -61,8 +61,10 @@ set(PROJECT_SOURCES
     source/main.cpp
     source/image_viewer_window.cpp
     source/img_graphics_view.cpp
+    source/multi_curve_plot.cpp
     include/image_viewer_window.h
     include/img_graphics_view.h
+    include/multi_curve_plot.h
     uidesign/image_viewer_window.ui
 )
 

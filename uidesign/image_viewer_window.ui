@@ -443,7 +443,7 @@
         <item>
          <widget class="QLabel" name="label_xGrayProfileTitle">
           <property name="text">
-           <string>X Gray Profile</string>
+           <string>X Intensity Profile</string>
           </property>
          </widget>
         </item>
@@ -470,7 +470,7 @@
         <item>
          <widget class="QLabel" name="label_yGrayProfileTitle">
           <property name="text">
-           <string>Y Gray Profile</string>
+           <string>Y Intensity Profile</string>
           </property>
          </widget>
         </item>

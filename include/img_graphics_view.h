@@ -157,7 +157,7 @@ private:
 
     // 输入：无。
     // 输出：无。
-    // 作用：缩放变化后同步所有覆盖图形线宽和Pick标记大小。
+    // 作用：缩放变化后同步覆盖图形、Pick参考线和标记大小。
     void updateOverlayAppearance();
 
     // 输入：需要限制的场景坐标。
@@ -235,7 +235,7 @@ private:
 
     // 输入：无。
     // 输出：无。
-    // 作用：移除唯一Pick覆盖标记并清空保存位置。
+    // 作用：移除唯一Pick标记和两条原图坐标参考线。
     void clearPickedPixel();
 
     // 输入：无。
@@ -263,9 +263,12 @@ private:
     QGraphicsRectItem* m_roiItemPtr;        // 由m_scenePtr管理。
     QGraphicsItem* m_drawingPreviewItemPtr; // 由m_scenePtr管理的实时预览。
     QGraphicsRectItem* m_pickItemPtr;        // 由m_scenePtr管理的唯一Pick标记。
+    QGraphicsLineItem* m_pickHorizontalLinePtr; // 由m_scenePtr管理的原图水平参考线。
+    QGraphicsLineItem* m_pickVerticalLinePtr;   // 由m_scenePtr管理的原图垂直参考线。
     QGraphicsItem* m_selectedDrawingItemPtr; // 当前唯一选中的普通绘图观察指针。
     QVector<DrawingItemRecord> m_drawingItems; // 当前画布中的可删除绘图集合。
     QTransform m_currentToOriginalTransform;   // 当前画布坐标到原图坐标的变换。
+    QTransform m_originalToCurrentTransform;   // 原图坐标到当前画布坐标的变换。
     QSize m_originalImageSize;                 // 原图像素尺寸。
     ToolMode m_toolMode;                       // 当前激活的互斥工具模式。
     ToolMode m_activeDrawingMode;              // 本次实时预览所属工具模式。

@@ -23,6 +23,8 @@ ImgGraphicsView::ImgGraphicsView(QWidget* parent)
     , m_roiItemPtr(nullptr)
     , m_drawingPreviewItemPtr(nullptr)
     , m_pickItemPtr(nullptr)
+    , m_pickHorizontalLinePtr(nullptr)
+    , m_pickVerticalLinePtr(nullptr)
     , m_selectedDrawingItemPtr(nullptr)
     , m_toolMode(ToolMode::Roi)
     , m_activeDrawingMode(ToolMode::Roi)
@@ -52,9 +54,18 @@ void ImgGraphicsView::setImage(
     m_roiItemPtr = nullptr;
     m_drawingPreviewItemPtr = nullptr;
     m_pickItemPtr = nullptr;
+    m_pickHorizontalLinePtr = nullptr;
+    m_pickVerticalLinePtr = nullptr;
     m_selectedDrawingItemPtr = nullptr;
     m_drawingItems.clear();
     m_currentToOriginalTransform = currentToOriginalTransform;
+    bool isInvertible = false;
+    m_originalToCurrentTransform =
+        m_currentToOriginalTransform.inverted(&isInvertible);
+    if (!isInvertible)
+    {
+        m_originalToCurrentTransform = QTransform();
+    }
     m_originalImageSize = originalImageSize;
     m_isDrawing = false;
     m_hasExceededDragThreshold = false;
@@ -195,6 +206,14 @@ void ImgGraphicsView::updateOverlayAppearance()
             m_pickSceneCenter.y() - markerSize / 2.0,
             markerSize,
             markerSize);
+    }
+    if (m_pickHorizontalLinePtr != nullptr)
+    {
+        m_pickHorizontalLinePtr->setPen(createOverlayPen(Qt::yellow));
+    }
+    if (m_pickVerticalLinePtr != nullptr)
+    {
+        m_pickVerticalLinePtr->setPen(createOverlayPen(Qt::yellow));
     }
 }
 
@@ -548,16 +567,47 @@ void ImgGraphicsView::pickPixelAt(const QPointF& scenePosition)
         return;
     }
 
-    const QPixmap& currentPixmap = m_pixmapItemPtr->pixmap();
-    const int currentPixelX = qBound(
-        0,
-        static_cast<int>(std::floor(scenePosition.x())),
-        currentPixmap.width() - 1);
-    const int currentPixelY = qBound(
-        0,
-        static_cast<int>(std::floor(scenePosition.y())),
-        currentPixmap.height() - 1);
-    m_pickSceneCenter = QPointF(currentPixelX + 0.5, currentPixelY + 0.5);
+    const QPointF originalPixelCenter(
+        originalPixelX + 0.5,
+        originalPixelY + 0.5);
+    m_pickSceneCenter =
+        m_originalToCurrentTransform.map(originalPixelCenter);
+
+    const QLineF originalHorizontalLine(
+        QPointF(0.0, originalPixelY + 0.5),
+        QPointF(m_originalImageSize.width(), originalPixelY + 0.5));
+    const QLineF originalVerticalLine(
+        QPointF(originalPixelX + 0.5, 0.0),
+        QPointF(originalPixelX + 0.5, m_originalImageSize.height()));
+    const QLineF currentHorizontalLine(
+        m_originalToCurrentTransform.map(originalHorizontalLine.p1()),
+        m_originalToCurrentTransform.map(originalHorizontalLine.p2()));
+    const QLineF currentVerticalLine(
+        m_originalToCurrentTransform.map(originalVerticalLine.p1()),
+        m_originalToCurrentTransform.map(originalVerticalLine.p2()));
+
+    if (m_pickHorizontalLinePtr == nullptr)
+    {
+        m_pickHorizontalLinePtr = m_scenePtr->addLine(
+            currentHorizontalLine,
+            createOverlayPen(Qt::yellow));
+        m_pickHorizontalLinePtr->setZValue(2.5);
+    }
+    else
+    {
+        m_pickHorizontalLinePtr->setLine(currentHorizontalLine);
+    }
+    if (m_pickVerticalLinePtr == nullptr)
+    {
+        m_pickVerticalLinePtr = m_scenePtr->addLine(
+            currentVerticalLine,
+            createOverlayPen(Qt::yellow));
+        m_pickVerticalLinePtr->setZValue(2.5);
+    }
+    else
+    {
+        m_pickVerticalLinePtr->setLine(currentVerticalLine);
+    }
 
     if (m_pickItemPtr == nullptr)
     {
@@ -578,6 +628,16 @@ void ImgGraphicsView::clearPickedPixel()
     {
         delete m_pickItemPtr;
         m_pickItemPtr = nullptr;
+    }
+    if (m_pickHorizontalLinePtr != nullptr)
+    {
+        delete m_pickHorizontalLinePtr;
+        m_pickHorizontalLinePtr = nullptr;
+    }
+    if (m_pickVerticalLinePtr != nullptr)
+    {
+        delete m_pickVerticalLinePtr;
+        m_pickVerticalLinePtr = nullptr;
     }
     emit pixelPickCleared();
 }
