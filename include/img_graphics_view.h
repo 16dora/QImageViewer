@@ -7,7 +7,11 @@
 #include <QPixmap>
 #include <QPoint>
 #include <QPointF>
+#include <QRect>
 #include <QRectF>
+
+class QPaintEvent;
+class QPainter;
 
 namespace image_viewer {
 
@@ -40,6 +44,9 @@ protected:
     // 处理视图尺寸变化并重新自适应图片。
     void resizeEvent(QResizeEvent* eventPtr) override;
 
+    // 绘制主场景并在需要时叠加缩略导航图。
+    void paintEvent(QPaintEvent* eventPtr) override;
+
 signals:
     // ROI选择完成后发出场景坐标区域。
     void roiSelected(const QRectF& roiRect);
@@ -48,9 +55,32 @@ signals:
     void zoomChanged(double scaleFactor);
 
 private:
+    // 单次滚轮缩放使用的倍率。
     static constexpr double ZOOM_STEP_FACTOR = 1.15;
+
+    // ROI有效选择的最小边长，单位为场景坐标。
     static constexpr qreal MIN_ROI_SIZE = 5.0;
+
+    // ROI红色边框的线宽，单位为场景坐标。
     static constexpr qreal ROI_PEN_WIDTH = 2.0;
+
+    // 缩略导航图相对于视口尺寸的最大比例。
+    static constexpr qreal NAVIGATION_THUMBNAIL_VIEWPORT_RATIO = 0.25;
+
+    // 缩略导航图的最大宽度，单位为视口像素。
+    static constexpr int NAVIGATION_THUMBNAIL_MAX_WIDTH = 200;
+
+    // 缩略导航图的最大高度，单位为视口像素。
+    static constexpr int NAVIGATION_THUMBNAIL_MAX_HEIGHT = 150;
+
+    // 缩略导航图与视口边缘的间距，单位为视口像素。
+    static constexpr int NAVIGATION_THUMBNAIL_MARGIN = 8;
+
+    // 缩略导航图深色外边框的线宽，单位为视口像素。
+    static constexpr qreal NAVIGATION_THUMBNAIL_BORDER_WIDTH = 1.0;
+
+    // 黄色视口反馈框的线宽，单位为视口像素。
+    static constexpr qreal NAVIGATION_VIEWPORT_PEN_WIDTH = 1.0;
 
     // 输入：无。
     // 输出：无。
@@ -61,6 +91,26 @@ private:
     // 输出：无。
     // 作用：读取视图变换并发送实际倍率。
     void emitCurrentZoom();
+
+    // 输入：无。
+    // 输出：当前是否需要显示缩略导航图。
+    // 作用：判断图片显示区域是否在任一方向超出视口。
+    bool isNavigationThumbnailVisible() const;
+
+    // 输入：无。
+    // 输出：缩略导航图在视口中的绘制区域。
+    // 作用：根据视口尺寸和原图比例计算右上角缩略图位置。
+    QRect calculateNavigationThumbnailRect() const;
+
+    // 输入：缩略导航图在视口中的绘制区域。
+    // 输出：当前可见原图区域映射到缩略图后的矩形。
+    // 作用：计算黄色视口反馈框的位置和大小。
+    QRectF calculateNavigationViewportRect(const QRect& thumbnailRect) const;
+
+    // 输入：用于绘制视口覆盖层的画笔。
+    // 输出：无。
+    // 作用：绘制完整原图缩略图、外边框和黄色视口框。
+    void drawNavigationThumbnail(QPainter* painterPtr) const;
 
     QGraphicsScene* m_scenePtr;             // 由QObject父子关系管理。
     QGraphicsPixmapItem* m_pixmapItemPtr;   // 由m_scenePtr管理。

@@ -1,6 +1,8 @@
 #include "img_graphics_view.h"
 
 #include <QMouseEvent>
+#include <QPaintEvent>
+#include <QPainter>
 #include <QPen>
 #include <QResizeEvent>
 #include <QScrollBar>
@@ -52,6 +54,7 @@ void ImgGraphicsView::wheelEvent(QWheelEvent* eventPtr)
         scale(1.0 / ZOOM_STEP_FACTOR, 1.0 / ZOOM_STEP_FACTOR);
     }
 
+    viewport()->update();
     emitCurrentZoom();
 }
 
@@ -71,6 +74,91 @@ void ImgGraphicsView::fitImageInView()
 void ImgGraphicsView::emitCurrentZoom()
 {
     emit zoomChanged(transform().m11());
+}
+
+// 判断图片显示区域是否在任一方向超出当前视口。
+bool ImgGraphicsView::isNavigationThumbnailVisible() const
+{
+    if (m_pixmapItemPtr == nullptr || m_pixmapItemPtr->pixmap().isNull())
+    {
+        return false;
+    }
+
+    const QRectF imageViewportRect =
+        viewportTransform().mapRect(m_pixmapItemPtr->sceneBoundingRect());
+    return imageViewportRect.width() > viewport()->width()
+           || imageViewportRect.height() > viewport()->height();
+}
+
+// 根据视口尺寸上限和原图比例计算右上角缩略图区域。
+QRect ImgGraphicsView::calculateNavigationThumbnailRect() const
+{
+    const int availableWidth = qMax(
+        1,
+        qMin(NAVIGATION_THUMBNAIL_MAX_WIDTH,
+             static_cast<int>(viewport()->width()
+                              * NAVIGATION_THUMBNAIL_VIEWPORT_RATIO)));
+    const int availableHeight = qMax(
+        1,
+        qMin(NAVIGATION_THUMBNAIL_MAX_HEIGHT,
+             static_cast<int>(viewport()->height()
+                              * NAVIGATION_THUMBNAIL_VIEWPORT_RATIO)));
+    const QSize thumbnailSize = m_pixmapItemPtr->pixmap().size().scaled(
+        QSize(availableWidth, availableHeight), Qt::KeepAspectRatio);
+    return QRect(viewport()->width() - NAVIGATION_THUMBNAIL_MARGIN
+                     - thumbnailSize.width(),
+                 NAVIGATION_THUMBNAIL_MARGIN,
+                 thumbnailSize.width(),
+                 thumbnailSize.height());
+}
+
+// 将当前视口可见的场景区域映射到缩略导航图坐标。
+QRectF ImgGraphicsView::calculateNavigationViewportRect(
+    const QRect& thumbnailRect) const
+{
+    const QRectF imageSceneRect = m_pixmapItemPtr->sceneBoundingRect();
+    const QRectF visibleSceneRect =
+        mapToScene(viewport()->rect()).boundingRect().intersected(imageSceneRect);
+    if (imageSceneRect.isEmpty() || visibleSceneRect.isEmpty())
+    {
+        return QRectF();
+    }
+
+    const qreal thumbnailScaleX =
+        static_cast<qreal>(thumbnailRect.width()) / imageSceneRect.width();
+    const qreal thumbnailScaleY =
+        static_cast<qreal>(thumbnailRect.height()) / imageSceneRect.height();
+    return QRectF(
+        thumbnailRect.left()
+            + (visibleSceneRect.left() - imageSceneRect.left()) * thumbnailScaleX,
+        thumbnailRect.top()
+            + (visibleSceneRect.top() - imageSceneRect.top()) * thumbnailScaleY,
+        visibleSceneRect.width() * thumbnailScaleX,
+        visibleSceneRect.height() * thumbnailScaleY);
+}
+
+// 绘制完整原图缩略图、深色外边框和黄色视口反馈框。
+void ImgGraphicsView::drawNavigationThumbnail(QPainter* painterPtr) const
+{
+    const QRect thumbnailRect = calculateNavigationThumbnailRect();
+    painterPtr->setRenderHint(QPainter::SmoothPixmapTransform);
+    painterPtr->drawPixmap(thumbnailRect,
+                           m_pixmapItemPtr->pixmap(),
+                           m_pixmapItemPtr->pixmap().rect());
+
+    painterPtr->setBrush(Qt::NoBrush);
+    painterPtr->setPen(
+        QPen(Qt::black, NAVIGATION_THUMBNAIL_BORDER_WIDTH));
+    painterPtr->drawRect(thumbnailRect);
+
+    const QRectF navigationViewportRect =
+        calculateNavigationViewportRect(thumbnailRect);
+    if (!navigationViewportRect.isEmpty())
+    {
+        painterPtr->setPen(
+            QPen(Qt::yellow, NAVIGATION_VIEWPORT_PEN_WIDTH));
+        painterPtr->drawRect(navigationViewportRect);
+    }
 }
 
 // 根据鼠标按钮启动右键平移或左键ROI绘制。
@@ -108,6 +196,7 @@ void ImgGraphicsView::mouseMoveEvent(QMouseEvent* eventPtr)
         m_lastPanPos = currentViewPos;
         horizontalScrollBar()->setValue(horizontalScrollBar()->value() - delta.x());
         verticalScrollBar()->setValue(verticalScrollBar()->value() - delta.y());
+        viewport()->update();
     }
     else if (m_isDrawingRoi && m_roiItemPtr != nullptr)
     {
@@ -147,6 +236,19 @@ void ImgGraphicsView::resizeEvent(QResizeEvent* eventPtr)
 {
     QGraphicsView::resizeEvent(eventPtr);
     fitImageInView();
+}
+
+// 完成主场景绘制后，在视口右上角按需绘制缩略导航图。
+void ImgGraphicsView::paintEvent(QPaintEvent* eventPtr)
+{
+    QGraphicsView::paintEvent(eventPtr);
+    if (!isNavigationThumbnailVisible())
+    {
+        return;
+    }
+
+    QPainter painter(viewport());
+    drawNavigationThumbnail(&painter);
 }
 
 } // namespace image_viewer
