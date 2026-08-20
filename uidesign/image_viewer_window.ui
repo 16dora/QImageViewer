@@ -258,7 +258,7 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>1</number>
+           <number>2</number>
           </property>
           <widget class="QWidget" name="widget_imageProcessingPage">
            <attribute name="title">
@@ -374,7 +374,28 @@
             <string>ImgSave</string>
            </attribute>
            <layout class="QGridLayout" name="layout_imageSaving">
-            <item row="1" column="2">
+            <item row="1" column="0">
+             <widget class="QCheckBox" name="check_keepOverlay">
+              <property name="text">
+               <string>Keep Overlay</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="2">
+             <widget class="QPushButton" name="btn_saveImageTo">
+              <property name="text">
+               <string>Save Image to</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_imageFormatTitle">
+              <property name="text">
+               <string>ImgType:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
              <widget class="QComboBox" name="cbox_imageFormat">
               <item>
                <property name="text">
@@ -393,31 +414,159 @@
               </item>
              </widget>
             </item>
-            <item row="1" column="1">
-             <widget class="QLabel" name="label_imageFormatTitle">
-              <property name="text">
-               <string>ImgType</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QCheckBox" name="check_keepOverlay">
-              <property name="text">
-               <string>Keep Overlay</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
+            <item row="3" column="0">
              <widget class="QPushButton" name="btn_saveImage">
               <property name="text">
                <string>Save Image</string>
               </property>
              </widget>
             </item>
-            <item row="2" column="2">
-             <widget class="QPushButton" name="btn_saveImageTo">
+           </layout>
+          </widget>
+          <widget class="QWidget" name="widget_maskInputPage">
+           <attribute name="title">
+            <string>Mask Input</string>
+           </attribute>
+           <layout class="QGridLayout" name="layout_maskControls">
+            <item row="1" column="2">
+             <widget class="QPushButton" name="btn_applyMaskOpacity">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
               <property name="text">
-               <string>Save Image to</string>
+               <string>Apply Opacity</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QSpinBox" name="sbox_maskOpacityPercent">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="suffix">
+               <string>%</string>
+              </property>
+              <property name="maximum">
+               <number>100</number>
+              </property>
+              <property name="value">
+               <number>100</number>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QComboBox" name="cbox_maskRotationAngleDegree">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <item>
+               <property name="text">
+                <string>0</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>22.5</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>45</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>67.5</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>90</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>112.5</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>135</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>157.5</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>180</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item row="2" column="2">
+             <widget class="QPushButton" name="btn_applyMaskRotation">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>Apply Rotation</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_maskRotationTitle">
+              <property name="text">
+               <string>Mask Rotation:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_maskOpacityTitle">
+              <property name="text">
+               <string>Opacity:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QPushButton" name="btn_loadMaskFile">
+              <property name="text">
+               <string>Load Mask</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_maskFlipTitle">
+              <property name="text">
+               <string>Mask Flip:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QPushButton" name="btn_maskVerticalFlip">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>Vertical Flip</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="2">
+             <widget class="QPushButton" name="btn_maskHorizontalFlip">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>Horizontal Flip</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
               </property>
              </widget>
             </item>

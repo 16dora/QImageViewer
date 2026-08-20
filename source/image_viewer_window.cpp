@@ -10,7 +10,9 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileDialog>
+#include <QImageReader>
 #include <QImageWriter>
+#include <QMessageBox>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
@@ -25,8 +27,12 @@ ImageViewerWindow::ImageViewerWindow(QWidget* parent)
     : QMainWindow(parent)
     , m_uiPtr(std::make_unique<Ui::ImageViewerWindow>())
     , m_currentRotationAngleDegree(0.0)
+    , m_currentMaskRotationAngleDegree(0.0)
+    , m_maskOpacityPercent(MASK_DEFAULT_OPACITY_PERCENT)
     , m_isVerticalFlipEnabled(false)
     , m_isHorizontalFlipEnabled(false)
+    , m_isMaskVerticalFlipEnabled(false)
+    , m_isMaskHorizontalFlipEnabled(false)
 {
     m_uiPtr->setupUi(this);
     initializeIntensityPlots();
@@ -67,6 +73,7 @@ ImageViewerWindow::ImageViewerWindow(QWidget* parent)
             &ImageViewerWindow::onPixelPickCleared);
     m_uiPtr->gview_mainImage->setToolMode(ImgGraphicsView::ToolMode::Roi);
     updateFlipButtonUiState();
+    updateMaskControlUiState();
 }
 
 // 使用默认析构释放智能指针管理的UI对象。
@@ -166,6 +173,7 @@ void ImageViewerWindow::on_btn_loadImage_clicked()
         return;
     }
 
+    clearMask();
     m_originalImage = loadedImage;
     m_uiPtr->cbox_rotationAngleDegree->setCurrentIndex(0);
     applyImageTransform(0.0, false, false);
@@ -202,6 +210,7 @@ void ImageViewerWindow::on_tbtn_resetView_clicked()
         return;
     }
 
+    clearMask();
     if (applyImageTransform(0.0, false, false))
     {
         m_uiPtr->cbox_rotationAngleDegree->setCurrentIndex(0);
@@ -275,6 +284,142 @@ void ImageViewerWindow::on_btn_saveImage_clicked()
         tr("[ImageViewer] Saved image to '%1'.")
             .arg(QDir::toNativeSeparators(imageFilePath)),
         STATUS_MESSAGE_TIMEOUT_MS);
+}
+
+// 选择并加载实际位深为1的BMP Mask文件。
+void ImageViewerWindow::on_btn_loadMaskFile_clicked()
+{
+    if (m_originalImage.isNull())
+    {
+        QMessageBox::warning(
+            this,
+            tr("Load Mask"),
+            tr("Load an image before loading a Mask file."));
+        return;
+    }
+
+    const QString fileName = QFileDialog::getOpenFileName(
+        this,
+        tr("Load Mask"),
+        QString(),
+        tr("1-bit Bitmap Mask (*.bmp)"));
+    if (fileName.isEmpty())
+    {
+        return;
+    }
+
+    m_uiPtr->btn_loadMaskFile->setEnabled(false);
+    const QByteArray detectedImageFormat =
+        QImageReader::imageFormat(fileName).toLower();
+    QImageReader maskImageReader(fileName);
+    const QImage loadedMaskImage = maskImageReader.read();
+    m_uiPtr->btn_loadMaskFile->setEnabled(true);
+    if (detectedImageFormat != QByteArrayLiteral("bmp")
+        || loadedMaskImage.isNull())
+    {
+        QMessageBox::critical(
+            this,
+            tr("Invalid Mask File"),
+            tr("The Mask file must be a valid BMP image.\n%1")
+                .arg(maskImageReader.errorString()));
+        return;
+    }
+    if (loadedMaskImage.depth() != MASK_REQUIRED_IMAGE_DEPTH)
+    {
+        QMessageBox::critical(
+            this,
+            tr("Invalid Mask Depth"),
+            tr("The Mask image must have a bit depth of 1. "
+               "The selected image has a bit depth of %1.")
+                .arg(loadedMaskImage.depth()));
+        return;
+    }
+
+    const QImage binaryMaskImage = createBinaryMaskImage(loadedMaskImage);
+    if (binaryMaskImage.isNull())
+    {
+        QMessageBox::critical(
+            this,
+            tr("Invalid Mask File"),
+            tr("Failed to prepare the selected Mask image."));
+        return;
+    }
+
+    clearMask();
+    m_originalMaskImage = binaryMaskImage;
+    if (!applyMaskTransform(
+            0.0,
+            false,
+            false,
+            MASK_DEFAULT_OPACITY_PERCENT))
+    {
+        clearMask();
+        QMessageBox::critical(
+            this,
+            tr("Mask Error"),
+            tr("Failed to display the selected Mask image."));
+        return;
+    }
+
+    statusBar()->showMessage(
+        tr("[ImageViewer] Loaded Mask image '%1'.")
+            .arg(QDir::toNativeSeparators(fileName)),
+        STATUS_MESSAGE_TIMEOUT_MS);
+}
+
+// 应用Mask黑色区域的不透明度百分比。
+void ImageViewerWindow::on_btn_applyMaskOpacity_clicked()
+{
+    if (!applyMaskTransform(
+            m_currentMaskRotationAngleDegree,
+            m_isMaskVerticalFlipEnabled,
+            m_isMaskHorizontalFlipEnabled,
+            m_uiPtr->sbox_maskOpacityPercent->value()))
+    {
+        updateMaskControlUiState();
+    }
+}
+
+// 从原始Mask应用下拉框选择的绝对顺时针旋转角度。
+void ImageViewerWindow::on_btn_applyMaskRotation_clicked()
+{
+    const double selectedRotationAngleDegree =
+        m_uiPtr->cbox_maskRotationAngleDegree->currentIndex()
+        * ROTATION_ANGLE_STEP_DEGREE;
+    if (!applyMaskTransform(
+            selectedRotationAngleDegree,
+            m_isMaskVerticalFlipEnabled,
+            m_isMaskHorizontalFlipEnabled,
+            m_maskOpacityPercent))
+    {
+        updateMaskControlUiState();
+    }
+}
+
+// 根据切换状态应用Mask绕竖直中轴的左右翻转。
+void ImageViewerWindow::on_btn_maskVerticalFlip_clicked(bool isChecked)
+{
+    if (!applyMaskTransform(
+            m_currentMaskRotationAngleDegree,
+            isChecked,
+            m_isMaskHorizontalFlipEnabled,
+            m_maskOpacityPercent))
+    {
+        updateMaskControlUiState();
+    }
+}
+
+// 根据切换状态应用Mask绕水平中轴的上下翻转。
+void ImageViewerWindow::on_btn_maskHorizontalFlip_clicked(bool isChecked)
+{
+    if (!applyMaskTransform(
+            m_currentMaskRotationAngleDegree,
+            m_isMaskVerticalFlipEnabled,
+            isChecked,
+            m_maskOpacityPercent))
+    {
+        updateMaskControlUiState();
+    }
 }
 
 // 根据切换状态重新生成绕竖直中轴左右翻转的当前图像。
@@ -422,7 +567,220 @@ bool ImageViewerWindow::applyImageTransform(
         m_currentToLogicalTransform,
         m_logicalImage.size());
     resetRoiPreview();
+    if (!m_originalMaskImage.isNull())
+    {
+        applyMaskTransform(
+            m_currentMaskRotationAngleDegree,
+            m_isMaskVerticalFlipEnabled,
+            m_isMaskHorizontalFlipEnabled,
+            m_maskOpacityPercent);
+    }
     return true;
+}
+
+// 将一位Mask按色表显示结果标准化为不含透明度的纯黑白图像。
+QImage ImageViewerWindow::createBinaryMaskImage(const QImage& maskImage) const
+{
+    if (maskImage.isNull()
+        || maskImage.depth() != MASK_REQUIRED_IMAGE_DEPTH)
+    {
+        return QImage();
+    }
+
+    QImage binaryMaskImage(maskImage.size(), QImage::Format_ARGB32);
+    for (int pixelY = 0; pixelY < maskImage.height(); ++pixelY)
+    {
+        for (int pixelX = 0; pixelX < maskImage.width(); ++pixelX)
+        {
+            const QColor maskColor = maskImage.pixelColor(pixelX, pixelY);
+            const bool isWhite = qGray(maskColor.rgb())
+                >= MASK_WHITE_THRESHOLD;
+            binaryMaskImage.setPixelColor(
+                pixelX,
+                pixelY,
+                isWhite ? Qt::white : Qt::black);
+        }
+    }
+    return binaryMaskImage;
+}
+
+// 从标准Mask依次生成中心翻转和绝对顺时针旋转结果。
+QImage ImageViewerWindow::createTransformedMaskImage(
+    double rotationAngleDegree,
+    bool isVerticalFlipEnabled,
+    bool isHorizontalFlipEnabled) const
+{
+    if (m_originalMaskImage.isNull())
+    {
+        return QImage();
+    }
+
+    QImage flippedMaskImage;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    Qt::Orientations flipOrientations;
+    if (isVerticalFlipEnabled)
+    {
+        flipOrientations |= Qt::Horizontal;
+    }
+    if (isHorizontalFlipEnabled)
+    {
+        flipOrientations |= Qt::Vertical;
+    }
+    flippedMaskImage = flipOrientations == Qt::Orientations()
+        ? m_originalMaskImage
+        : m_originalMaskImage.flipped(flipOrientations);
+#else
+    flippedMaskImage = m_originalMaskImage.mirrored(
+        isVerticalFlipEnabled,
+        isHorizontalFlipEnabled);
+#endif
+    if (qAbs(rotationAngleDegree) < ROTATION_ANGLE_EPSILON)
+    {
+        return flippedMaskImage;
+    }
+
+    QTransform rotationTransform;
+    rotationTransform.rotate(rotationAngleDegree);
+    return flippedMaskImage.transformed(
+        rotationTransform,
+        Qt::FastTransformation);
+}
+
+// 生成与当前图片等大的Mask覆盖图，仅在Mask白色区域保留透明窗口。
+QImage ImageViewerWindow::createMaskOverlayImage(
+    const QImage& transformedMaskImage,
+    int opacityPercent) const
+{
+    if (m_currentImage.isNull() || transformedMaskImage.isNull())
+    {
+        return QImage();
+    }
+
+    const int boundedOpacityPercent = qBound(0, opacityPercent, 100);
+    const int blockerAlpha = qRound(
+        EIGHT_BIT_ALPHA_MAXIMUM
+        * static_cast<double>(boundedOpacityPercent) / 100.0);
+    QImage maskOverlayImage(
+        m_currentImage.size(),
+        QImage::Format_ARGB32_Premultiplied);
+    maskOverlayImage.fill(QColor(0, 0, 0, blockerAlpha));
+
+    const int maskOffsetX =
+        (m_currentImage.width() - transformedMaskImage.width()) / 2;
+    const int maskOffsetY =
+        (m_currentImage.height() - transformedMaskImage.height()) / 2;
+    for (int maskPixelY = 0;
+         maskPixelY < transformedMaskImage.height();
+         ++maskPixelY)
+    {
+        const int overlayPixelY = maskOffsetY + maskPixelY;
+        if (overlayPixelY < 0 || overlayPixelY >= maskOverlayImage.height())
+        {
+            continue;
+        }
+        for (int maskPixelX = 0;
+             maskPixelX < transformedMaskImage.width();
+             ++maskPixelX)
+        {
+            const int overlayPixelX = maskOffsetX + maskPixelX;
+            if (overlayPixelX < 0 || overlayPixelX >= maskOverlayImage.width())
+            {
+                continue;
+            }
+
+            const QColor maskColor = transformedMaskImage.pixelColor(
+                maskPixelX,
+                maskPixelY);
+            if (maskColor.alpha() > 0
+                && qGray(maskColor.rgb()) >= MASK_WHITE_THRESHOLD)
+            {
+                maskOverlayImage.setPixel(
+                    overlayPixelX,
+                    overlayPixelY,
+                    qRgba(0, 0, 0, 0));
+            }
+        }
+    }
+    return maskOverlayImage;
+}
+
+// 生成并提交Mask独立变换、Opacity和场景显示层。
+bool ImageViewerWindow::applyMaskTransform(
+    double rotationAngleDegree,
+    bool isVerticalFlipEnabled,
+    bool isHorizontalFlipEnabled,
+    int opacityPercent)
+{
+    if (m_originalMaskImage.isNull() || m_currentImage.isNull())
+    {
+        return false;
+    }
+
+    const QImage transformedMaskImage = createTransformedMaskImage(
+        rotationAngleDegree,
+        isVerticalFlipEnabled,
+        isHorizontalFlipEnabled);
+    const int boundedOpacityPercent = qBound(0, opacityPercent, 100);
+    const QImage maskOverlayImage = createMaskOverlayImage(
+        transformedMaskImage,
+        boundedOpacityPercent);
+    if (maskOverlayImage.isNull())
+    {
+        return false;
+    }
+
+    m_currentMaskRotationAngleDegree = rotationAngleDegree;
+    m_isMaskVerticalFlipEnabled = isVerticalFlipEnabled;
+    m_isMaskHorizontalFlipEnabled = isHorizontalFlipEnabled;
+    m_maskOpacityPercent = boundedOpacityPercent;
+    m_uiPtr->gview_mainImage->setMaskOverlayImage(maskOverlayImage);
+    updateMaskControlUiState();
+    return true;
+}
+
+// 清除Mask数据与场景图层并恢复默认控制状态。
+void ImageViewerWindow::clearMask()
+{
+    m_originalMaskImage = QImage();
+    m_currentMaskRotationAngleDegree = 0.0;
+    m_maskOpacityPercent = MASK_DEFAULT_OPACITY_PERCENT;
+    m_isMaskVerticalFlipEnabled = false;
+    m_isMaskHorizontalFlipEnabled = false;
+    m_uiPtr->gview_mainImage->clearMaskOverlay();
+    updateMaskControlUiState();
+}
+
+// 同步Mask控件使能状态、数值、勾选状态和英文动作文本。
+void ImageViewerWindow::updateMaskControlUiState()
+{
+    const bool hasMaskImage = !m_originalMaskImage.isNull();
+    m_uiPtr->sbox_maskOpacityPercent->setEnabled(hasMaskImage);
+    m_uiPtr->btn_applyMaskOpacity->setEnabled(hasMaskImage);
+    m_uiPtr->cbox_maskRotationAngleDegree->setEnabled(hasMaskImage);
+    m_uiPtr->btn_applyMaskRotation->setEnabled(hasMaskImage);
+    m_uiPtr->btn_maskVerticalFlip->setEnabled(hasMaskImage);
+    m_uiPtr->btn_maskHorizontalFlip->setEnabled(hasMaskImage);
+
+    m_uiPtr->sbox_maskOpacityPercent->setValue(m_maskOpacityPercent);
+    const int maskRotationIndex = qBound(
+        0,
+        qRound(
+            m_currentMaskRotationAngleDegree
+            / ROTATION_ANGLE_STEP_DEGREE),
+        m_uiPtr->cbox_maskRotationAngleDegree->count() - 1);
+    m_uiPtr->cbox_maskRotationAngleDegree->setCurrentIndex(maskRotationIndex);
+    m_uiPtr->btn_maskVerticalFlip->setChecked(
+        m_isMaskVerticalFlipEnabled);
+    m_uiPtr->btn_maskVerticalFlip->setText(
+        m_isMaskVerticalFlipEnabled
+            ? tr("Disable Vertical Flip")
+            : tr("Vertical Flip"));
+    m_uiPtr->btn_maskHorizontalFlip->setChecked(
+        m_isMaskHorizontalFlipEnabled);
+    m_uiPtr->btn_maskHorizontalFlip->setText(
+        m_isMaskHorizontalFlipEnabled
+            ? tr("Disable Horizontal Flip")
+            : tr("Horizontal Flip"));
 }
 
 // 同步双向翻转按钮的勾选状态和英文动作文本。

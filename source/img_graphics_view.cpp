@@ -20,6 +20,7 @@ ImgGraphicsView::ImgGraphicsView(QWidget* parent)
     : QGraphicsView(parent)
     , m_scenePtr(new QGraphicsScene(this))
     , m_pixmapItemPtr(nullptr)
+    , m_maskItemPtr(nullptr)
     , m_roiItemPtr(nullptr)
     , m_drawingPreviewItemPtr(nullptr)
     , m_pickItemPtr(nullptr)
@@ -51,6 +52,7 @@ void ImgGraphicsView::setImage(
     m_scenePtr->clear();
     m_pixmapItemPtr = m_scenePtr->addPixmap(pixmap);
     m_scenePtr->setSceneRect(m_pixmapItemPtr->sceneBoundingRect());
+    m_maskItemPtr = nullptr;
     m_roiItemPtr = nullptr;
     m_drawingPreviewItemPtr = nullptr;
     m_pickItemPtr = nullptr;
@@ -72,6 +74,37 @@ void ImgGraphicsView::setImage(
     m_isPanning = false;
     emit pixelPickCleared();
     fitImageInView();
+}
+
+// 将等尺寸Mask覆盖图添加到底图和全部交互图形之间。
+void ImgGraphicsView::setMaskOverlayImage(const QImage& maskOverlayImage)
+{
+    clearMaskOverlay();
+    if (maskOverlayImage.isNull()
+        || m_pixmapItemPtr == nullptr
+        || maskOverlayImage.size() != m_pixmapItemPtr->pixmap().size())
+    {
+        return;
+    }
+
+    m_maskItemPtr = m_scenePtr->addPixmap(
+        QPixmap::fromImage(maskOverlayImage));
+    m_maskItemPtr->setZValue(MASK_OVERLAY_Z_VALUE);
+    m_maskItemPtr->setAcceptedMouseButtons(Qt::NoButton);
+    viewport()->update();
+}
+
+// 删除Mask显示层且不改变底图和其他覆盖项。
+void ImgGraphicsView::clearMaskOverlay()
+{
+    if (m_maskItemPtr == nullptr)
+    {
+        return;
+    }
+
+    delete m_maskItemPtr;
+    m_maskItemPtr = nullptr;
+    viewport()->update();
 }
 
 // 在当前图像原始像素画布上绘制普通图形和Pick标记。

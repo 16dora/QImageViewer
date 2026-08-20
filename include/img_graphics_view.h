@@ -55,6 +55,16 @@ public:
     // 作用：导出时排除ROI、选择外框、绘制预览和视口导航图。
     QImage createImageWithOverlays(const QImage& baseImage) const;
 
+    // 输入：与当前图片画布尺寸一致的透明Mask覆盖图。
+    // 输出：无。
+    // 作用：将Mask放置在底图之上、全部交互覆盖图形之下。
+    void setMaskOverlayImage(const QImage& maskOverlayImage);
+
+    // 输入：无。
+    // 输出：无。
+    // 作用：移除当前Mask覆盖图且不改变底图和其他场景项。
+    void clearMaskOverlay();
+
     // 输入：需要激活的互斥工具模式。
     // 输出：无。
     // 作用：结束未完成绘制、清除选择并切换左键行为。
@@ -120,6 +130,9 @@ private:
 
     // 导出Pick标记的固定边长，单位为输出图像像素。
     static constexpr qreal EXPORT_PICK_MARKER_SIZE_IMAGE_PIXELS = 4.0;
+
+    // Mask覆盖图位于底图和普通绘图之间的场景层级。
+    static constexpr qreal MASK_OVERLAY_Z_VALUE = 0.5;
 
     // 图形单选使用的不可见命中半径，单位为视图像素。
     static constexpr qreal SELECTION_HIT_TOLERANCE_VIEW_PIXELS = 5.0;
@@ -272,6 +285,7 @@ private:
 
     QGraphicsScene* m_scenePtr;             // 由QObject父子关系管理。
     QGraphicsPixmapItem* m_pixmapItemPtr;   // 由m_scenePtr管理。
+    QGraphicsPixmapItem* m_maskItemPtr;     // 由m_scenePtr管理的独立Mask显示层。
     QGraphicsRectItem* m_roiItemPtr;        // 由m_scenePtr管理。
     QGraphicsItem* m_drawingPreviewItemPtr; // 由m_scenePtr管理的实时预览。
     QGraphicsRectItem* m_pickItemPtr;        // 由m_scenePtr管理的唯一Pick标记。
