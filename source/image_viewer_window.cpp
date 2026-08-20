@@ -27,19 +27,19 @@ ImageViewerWindow::ImageViewerWindow(QWidget* parent)
     m_uiPtr->setupUi(this);
     initializeIntensityPlots();
     m_uiPtr->buttonGroup_imageToolMode->setId(
-        m_uiPtr->tbtn_opticsChooseROI,
+        m_uiPtr->tbtn_chooseRoi,
         static_cast<int>(ImgGraphicsView::ToolMode::Roi));
     m_uiPtr->buttonGroup_imageToolMode->setId(
-        m_uiPtr->tbtn_opticsDrawLine,
+        m_uiPtr->tbtn_drawLine,
         static_cast<int>(ImgGraphicsView::ToolMode::Line));
     m_uiPtr->buttonGroup_imageToolMode->setId(
-        m_uiPtr->tbtn_opticsDrawCircle,
+        m_uiPtr->tbtn_drawCircle,
         static_cast<int>(ImgGraphicsView::ToolMode::Circle));
     m_uiPtr->buttonGroup_imageToolMode->setId(
-        m_uiPtr->tbtn_opticsDrawRect,
+        m_uiPtr->tbtn_drawRect,
         static_cast<int>(ImgGraphicsView::ToolMode::Rect));
     m_uiPtr->buttonGroup_imageToolMode->setId(
-        m_uiPtr->tbtn_opticsChooseROI_2,
+        m_uiPtr->tbtn_pickPixel,
         static_cast<int>(ImgGraphicsView::ToolMode::Pick));
     connect(m_uiPtr->buttonGroup_imageToolMode,
             &QButtonGroup::idClicked,
@@ -78,10 +78,10 @@ void ImageViewerWindow::initializeIntensityPlots()
     plotOptions.isLegendVisible = true;
 
     m_xProfilePlotPtr = std::make_unique<MultiCurvePlot>(
-        m_uiPtr->plot_opticsXGrayProfile,
+        m_uiPtr->plot_xIntensityProfile,
         plotOptions);
     m_yProfilePlotPtr = std::make_unique<MultiCurvePlot>(
-        m_uiPtr->plot_opticsYGrayProfile,
+        m_uiPtr->plot_yIntensityProfile,
         plotOptions);
     addIntensityProfileCurves(m_xProfilePlotPtr.get());
     addIntensityProfileCurves(m_yProfilePlotPtr.get());
@@ -191,7 +191,7 @@ void ImageViewerWindow::on_btn_rotateImage_clicked()
 }
 
 // 根据切换状态重新生成绕竖直中轴左右翻转的当前图像。
-void ImageViewerWindow::on_btn_opticsVerticalFlip_clicked(bool isChecked)
+void ImageViewerWindow::on_btn_verticalFlip_clicked(bool isChecked)
 {
     if (!applyImageTransform(
             m_currentRotationAngleDegree,
@@ -203,7 +203,7 @@ void ImageViewerWindow::on_btn_opticsVerticalFlip_clicked(bool isChecked)
 }
 
 // 根据切换状态重新生成绕水平中轴上下翻转的当前图像。
-void ImageViewerWindow::on_btn_opticsHorizontalFlip_clicked(bool isChecked)
+void ImageViewerWindow::on_btn_horizontalFlip_clicked(bool isChecked)
 {
     if (!applyImageTransform(
             m_currentRotationAngleDegree,
@@ -341,13 +341,13 @@ bool ImageViewerWindow::applyImageTransform(
 // 同步双向翻转按钮的勾选状态和英文动作文本。
 void ImageViewerWindow::updateFlipButtonUiState()
 {
-    m_uiPtr->btn_opticsVerticalFlip->setChecked(m_isVerticalFlipEnabled);
-    m_uiPtr->btn_opticsVerticalFlip->setText(
+    m_uiPtr->btn_verticalFlip->setChecked(m_isVerticalFlipEnabled);
+    m_uiPtr->btn_verticalFlip->setText(
         m_isVerticalFlipEnabled
             ? tr("Disable Vertical Flip")
             : tr("Vertical Flip"));
-    m_uiPtr->btn_opticsHorizontalFlip->setChecked(m_isHorizontalFlipEnabled);
-    m_uiPtr->btn_opticsHorizontalFlip->setText(
+    m_uiPtr->btn_horizontalFlip->setChecked(m_isHorizontalFlipEnabled);
+    m_uiPtr->btn_horizontalFlip->setText(
         m_isHorizontalFlipEnabled
             ? tr("Disable Horizontal Flip")
             : tr("Horizontal Flip"));
@@ -463,7 +463,7 @@ void ImageViewerWindow::onImageToolModeButtonClicked(int buttonId)
 // 显示Pick到的逻辑图像零基整数像素坐标。
 void ImageViewerWindow::onPixelPicked(const QPoint& logicalPixelPosition)
 {
-    m_uiPtr->label_PickedPixel->setText(
+    m_uiPtr->label_pickedPixel->setText(
         tr("X: %1,Y:%2")
             .arg(logicalPixelPosition.x())
             .arg(logicalPixelPosition.y()));
@@ -473,7 +473,7 @@ void ImageViewerWindow::onPixelPicked(const QPoint& logicalPixelPosition)
 // 将Pick标签和两个强度Plot恢复为无有效点状态。
 void ImageViewerWindow::onPixelPickCleared()
 {
-    m_uiPtr->label_PickedPixel->setText(tr("X: --,Y:--"));
+    m_uiPtr->label_pickedPixel->setText(tr("X: --,Y:--"));
     clearIntensityProfiles();
 }
 

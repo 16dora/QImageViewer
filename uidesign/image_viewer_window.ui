@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>947</width>
+    <width>1058</width>
     <height>728</height>
    </rect>
   </property>
@@ -39,7 +39,7 @@
           <item>
            <layout class="QHBoxLayout" name="layout_imageTools">
             <item>
-             <widget class="QToolButton" name="tbtn_opticsChooseROI">
+             <widget class="QToolButton" name="tbtn_chooseRoi">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -64,7 +64,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QToolButton" name="tbtn_opticsDrawLine">
+             <widget class="QToolButton" name="tbtn_drawLine">
               <property name="toolTip">
                <string>Draw line</string>
               </property>
@@ -80,7 +80,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QToolButton" name="tbtn_opticsDrawCircle">
+             <widget class="QToolButton" name="tbtn_drawCircle">
               <property name="toolTip">
                <string>Draw circle</string>
               </property>
@@ -96,7 +96,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QToolButton" name="tbtn_opticsDrawRect">
+             <widget class="QToolButton" name="tbtn_drawRect">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -118,7 +118,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QToolButton" name="tbtn_opticsChooseROI_2">
+             <widget class="QToolButton" name="tbtn_pickPixel">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -142,7 +142,7 @@
            </layout>
           </item>
           <item>
-           <widget class="QLabel" name="label_PickedPixel">
+           <widget class="QLabel" name="label_pickedPixel">
             <property name="minimumSize">
              <size>
               <width>80</width>
@@ -158,7 +158,7 @@
            </widget>
           </item>
           <item>
-           <widget class="QToolButton" name="tbtn_opticsZoomOut_2">
+           <widget class="QToolButton" name="tbtn_resetView">
             <property name="toolTip">
              <string>Zoom out</string>
             </property>
@@ -250,7 +250,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QTabWidget" name="group_imageProcessing">
+         <widget class="QTabWidget" name="tab_imageOperations">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -258,41 +258,14 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
-          <widget class="QWidget" name="ImgProcess">
+          <widget class="QWidget" name="widget_imageProcessingPage">
            <attribute name="title">
             <string>ImgProcess</string>
            </attribute>
            <layout class="QGridLayout" name="layout_imageProcessing">
-            <item row="0" column="1">
-             <widget class="QPushButton" name="btn_opticsHorizontalFlip">
-              <property name="text">
-               <string>Horizontal Flip</string>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="0">
-             <widget class="QPushButton" name="btn_opticsVerticalFlip">
-              <property name="text">
-               <string>Vertical Flip</string>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-          <widget class="QWidget" name="ImgRoate">
-           <attribute name="title">
-            <string>ImgRoate</string>
-           </attribute>
-           <layout class="QGridLayout" name="gridLayout">
-            <item row="0" column="1">
+            <item row="1" column="1">
              <widget class="QComboBox" name="cbox_rotationAngleDegree">
               <item>
                <property name="text">
@@ -341,36 +314,75 @@
               </item>
              </widget>
             </item>
-            <item row="0" column="2">
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_rotationAngleTitle">
+              <property name="text">
+               <string>RotateAngle</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
              <widget class="QPushButton" name="btn_rotateImage">
               <property name="text">
                <string>Rotate</string>
               </property>
              </widget>
             </item>
-            <item row="0" column="0">
-             <widget class="QLabel" name="label">
+            <item row="0" column="2">
+             <widget class="QPushButton" name="btn_horizontalFlip">
+              <property name="minimumSize">
+               <size>
+                <width>85</width>
+                <height>0</height>
+               </size>
+              </property>
               <property name="text">
-               <string>RotateAngle</string>
+               <string>Horizontal Flip</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QPushButton" name="btn_verticalFlip">
+              <property name="minimumSize">
+               <size>
+                <width>85</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Vertical Flip</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_flipTitle">
+              <property name="text">
+               <string>Flip</string>
               </property>
              </widget>
             </item>
            </layout>
           </widget>
-          <widget class="QWidget" name="ImgSave">
+          <widget class="QWidget" name="widget_imageSavingPage">
            <attribute name="title">
             <string>ImgSave</string>
            </attribute>
-           <layout class="QGridLayout" name="gridLayout_2">
+           <layout class="QGridLayout" name="layout_imageSaving">
             <item row="1" column="0">
-             <widget class="QLabel" name="label_2">
+             <widget class="QLabel" name="label_imageFormatTitle">
               <property name="text">
                <string>ImgType</string>
               </property>
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="QComboBox" name="cbox_opticsImageFormat">
+             <widget class="QComboBox" name="cbox_imageFormat">
               <item>
                <property name="text">
                 <string>jpg</string>
@@ -389,14 +401,14 @@
              </widget>
             </item>
             <item row="1" column="2">
-             <widget class="QPushButton" name="btn_opticsSaveImage">
+             <widget class="QPushButton" name="btn_saveImage">
               <property name="text">
                <string>Save Image</string>
               </property>
              </widget>
             </item>
             <item row="2" column="2">
-             <widget class="QPushButton" name="btn_opticsSaveImage_2">
+             <widget class="QPushButton" name="btn_saveImageTo">
               <property name="text">
                <string>Save Image to</string>
               </property>
@@ -407,7 +419,7 @@
          </widget>
         </item>
         <item>
-         <spacer name="verticalSpacer">
+         <spacer name="spacer_roiPanel">
           <property name="orientation">
            <enum>Qt::Orientation::Vertical</enum>
           </property>
@@ -427,18 +439,18 @@
      </layout>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="layout_grayProfiles">
+     <layout class="QHBoxLayout" name="layout_intensityProfiles">
       <item>
-       <layout class="QVBoxLayout" name="layout_xGrayProfile">
+       <layout class="QVBoxLayout" name="layout_xIntensityProfile">
         <item>
-         <widget class="QLabel" name="label_xGrayProfileTitle">
+         <widget class="QLabel" name="label_xIntensityProfileTitle">
           <property name="text">
            <string>X Intensity Profile</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QwtPlot" name="plot_opticsXGrayProfile">
+         <widget class="QwtPlot" name="plot_xIntensityProfile">
           <property name="minimumSize">
            <size>
             <width>360</width>
@@ -456,16 +468,16 @@
        </layout>
       </item>
       <item>
-       <layout class="QVBoxLayout" name="layout_yGrayProfile">
+       <layout class="QVBoxLayout" name="layout_yIntensityProfile">
         <item>
-         <widget class="QLabel" name="label_yGrayProfileTitle">
+         <widget class="QLabel" name="label_yIntensityProfileTitle">
           <property name="text">
            <string>Y Intensity Profile</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QwtPlot" name="plot_opticsYGrayProfile">
+         <widget class="QwtPlot" name="plot_yIntensityProfile">
           <property name="minimumSize">
            <size>
             <width>360</width>
@@ -491,7 +503,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>947</width>
+     <width>1058</width>
      <height>18</height>
     </rect>
    </property>

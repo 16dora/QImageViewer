@@ -40,10 +40,10 @@ private slots:
     void on_btn_rotateImage_clicked();
 
     // 根据按钮状态启用或取消绕竖直中轴的左右翻转。
-    void on_btn_opticsVerticalFlip_clicked(bool isChecked);
+    void on_btn_verticalFlip_clicked(bool isChecked);
 
     // 根据按钮状态启用或取消绕水平中轴的上下翻转。
-    void on_btn_opticsHorizontalFlip_clicked(bool isChecked);
+    void on_btn_horizontalFlip_clicked(bool isChecked);
 
     // 接收ROI场景区域并更新右侧预览。
     void onRoiSelected(const QRectF& roiRect);
