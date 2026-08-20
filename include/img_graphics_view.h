@@ -33,6 +33,7 @@ public:
     // 图片视图支持的互斥交互工具。
     enum class ToolMode
     {
+        None,
         Roi,
         Line,
         Circle,
@@ -70,12 +71,56 @@ public:
     // 作用：结束未完成绘制、清除选择并切换左键行为。
     void setToolMode(ToolMode toolMode);
 
+    // 输入：无。
+    // 输出：当前视图是否已经加载有效图片。
+    // 作用：控制参数生成入口的可用状态。
+    bool hasImage() const;
+
+    // 输入：无。
+    // 输出：当前显示画布的像素尺寸。
+    // 作用：为参数窗口设置当前画布整数输入范围。
+    QSize canvasSize() const;
+
+    // 输入：无。
+    // 输出：当前逻辑源图像的像素尺寸。
+    // 作用：为Pick参数窗口设置零基像素输入范围。
+    QSize sourceImageSize() const;
+
+    // 输入：当前画布中的整数起点和终点坐标。
+    // 输出：参数有效且成功生成直线时返回true。
+    // 作用：在不改变工具状态和选择状态的前提下提交直线。
+    bool generateLineByParameters(
+        const QPoint& startPosition,
+        const QPoint& endPosition);
+
+    // 输入：当前画布中的整数圆心坐标和半径。
+    // 输出：参数有效且成功生成圆时返回true。
+    // 作用：在不改变工具状态和选择状态的前提下提交圆。
+    bool generateCircleByParameters(
+        const QPoint& centerPosition,
+        int radius);
+
+    // 输入：当前画布中的整数左上角坐标和矩形尺寸。
+    // 输出：参数有效且成功生成矩形时返回true。
+    // 作用：在不改变工具状态和选择状态的前提下提交矩形。
+    bool generateRectByParameters(
+        const QPoint& startPosition,
+        const QSize& rectSize);
+
+    // 输入：逻辑图像中的零基整数像素坐标。
+    // 输出：参数有效且成功更新Pick点时返回true。
+    // 作用：复用现有Pick标记、参考线和强度曲线行为。
+    bool generatePickByParameters(const QPoint& sourcePixelPosition);
+
 protected:
     // 处理滚轮事件并更新图片缩放倍率。
     void wheelEvent(QWheelEvent* eventPtr) override;
 
     // 处理鼠标按下事件并启动平移或ROI绘制。
     void mousePressEvent(QMouseEvent* eventPtr) override;
+
+    // 在无工具状态下忽略左键双击。
+    void mouseDoubleClickEvent(QMouseEvent* eventPtr) override;
 
     // 处理鼠标移动事件并更新平移或ROI区域。
     void mouseMoveEvent(QMouseEvent* eventPtr) override;
@@ -257,6 +302,11 @@ private:
     // 输出：无。
     // 作用：映射并显示唯一天蓝色Pick点，黑色无效区会清除旧Pick。
     void pickPixelAt(const QPointF& scenePosition);
+
+    // 输入：已经通过范围校验的逻辑图像零基像素坐标。
+    // 输出：无。
+    // 作用：更新唯一Pick标记、参考线并发送坐标信号。
+    void updatePickedPixel(const QPoint& sourcePixelPosition);
 
     // 输入：无。
     // 输出：无。

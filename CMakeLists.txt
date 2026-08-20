@@ -62,10 +62,13 @@ set(PROJECT_SOURCES
     source/image_viewer_window.cpp
     source/img_graphics_view.cpp
     source/multi_curve_plot.cpp
+    source/parameter_generation_dialog.cpp
     include/image_viewer_window.h
     include/img_graphics_view.h
     include/multi_curve_plot.h
+    include/parameter_generation_dialog.h
     uidesign/image_viewer_window.ui
+    uidesign/parameter_generation_dialog.ui
 )
 
 qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})

@@ -2,8 +2,11 @@
 
 #include "img_graphics_view.h"
 #include "multi_curve_plot.h"
+#include "parameter_generation_dialog.h"
 #include "ui_image_viewer_window.h"
 
+#include <QAbstractButton>
+#include <QAction>
 #include <QButtonGroup>
 #include <QColor>
 #include <QCoreApplication>
@@ -12,11 +15,13 @@
 #include <QFileDialog>
 #include <QImageReader>
 #include <QImageWriter>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
 #include <QStatusBar>
+#include <QToolButton>
 #include <QTransform>
 #include <QtMath>
 
@@ -55,6 +60,26 @@ ImageViewerWindow::ImageViewerWindow(QWidget* parent)
             &QButtonGroup::idClicked,
             this,
             &ImageViewerWindow::onImageToolModeButtonClicked);
+    m_uiPtr->tbtn_drawLine->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_uiPtr->tbtn_drawCircle->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_uiPtr->tbtn_drawRect->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_uiPtr->tbtn_pickPixel->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_uiPtr->tbtn_drawLine,
+            &QToolButton::customContextMenuRequested,
+            this,
+            &ImageViewerWindow::onLineToolContextMenuRequested);
+    connect(m_uiPtr->tbtn_drawCircle,
+            &QToolButton::customContextMenuRequested,
+            this,
+            &ImageViewerWindow::onCircleToolContextMenuRequested);
+    connect(m_uiPtr->tbtn_drawRect,
+            &QToolButton::customContextMenuRequested,
+            this,
+            &ImageViewerWindow::onRectToolContextMenuRequested);
+    connect(m_uiPtr->tbtn_pickPixel,
+            &QToolButton::customContextMenuRequested,
+            this,
+            &ImageViewerWindow::onPickToolContextMenuRequested);
     connect(m_uiPtr->gview_mainImage,
             &ImgGraphicsView::zoomChanged,
             this,
@@ -71,7 +96,7 @@ ImageViewerWindow::ImageViewerWindow(QWidget* parent)
             &ImgGraphicsView::pixelPickCleared,
             this,
             &ImageViewerWindow::onPixelPickCleared);
-    m_uiPtr->gview_mainImage->setToolMode(ImgGraphicsView::ToolMode::Roi);
+    m_uiPtr->gview_mainImage->setToolMode(ImgGraphicsView::ToolMode::None);
     updateFlipButtonUiState();
     updateMaskControlUiState();
 }
@@ -897,12 +922,108 @@ void ImageViewerWindow::onZoomChanged(double scaleFactor)
     m_uiPtr->label_zoom->setText(tr("Zoom: %1x").arg(scaleFactor, 0, 'f', 2));
 }
 
-// 将按钮组编号转换为图片视图工具模式。
+// 维护最多选中一个且允许全部不选的图片工具状态。
 void ImageViewerWindow::onImageToolModeButtonClicked(int buttonId)
 {
-    m_uiPtr->gview_mainImage->setToolMode(
-        static_cast<ImgGraphicsView::ToolMode>(buttonId));
+    QAbstractButton* clickedButtonPtr =
+        m_uiPtr->buttonGroup_imageToolMode->button(buttonId);
+    if (clickedButtonPtr == nullptr)
+    {
+        return;
+    }
+
+    if (clickedButtonPtr->isChecked())
+    {
+        const QList<QAbstractButton*> toolButtons =
+            m_uiPtr->buttonGroup_imageToolMode->buttons();
+        for (QAbstractButton* toolButtonPtr : toolButtons)
+        {
+            if (toolButtonPtr != clickedButtonPtr)
+            {
+                toolButtonPtr->setChecked(false);
+            }
+        }
+        m_uiPtr->gview_mainImage->setToolMode(
+            static_cast<ImgGraphicsView::ToolMode>(buttonId));
+    }
+    else
+    {
+        m_uiPtr->gview_mainImage->setToolMode(
+            ImgGraphicsView::ToolMode::None);
+    }
     m_uiPtr->gview_mainImage->setFocus(Qt::ShortcutFocusReason);
+}
+
+// 显示Line按钮的参数生成右键菜单。
+void ImageViewerWindow::onLineToolContextMenuRequested(
+    const QPoint& buttonPosition)
+{
+    showParameterGenerationMenu(
+        m_uiPtr->tbtn_drawLine,
+        static_cast<int>(ImgGraphicsView::ToolMode::Line),
+        buttonPosition);
+}
+
+// 显示Circle按钮的参数生成右键菜单。
+void ImageViewerWindow::onCircleToolContextMenuRequested(
+    const QPoint& buttonPosition)
+{
+    showParameterGenerationMenu(
+        m_uiPtr->tbtn_drawCircle,
+        static_cast<int>(ImgGraphicsView::ToolMode::Circle),
+        buttonPosition);
+}
+
+// 显示Rect按钮的参数生成右键菜单。
+void ImageViewerWindow::onRectToolContextMenuRequested(
+    const QPoint& buttonPosition)
+{
+    showParameterGenerationMenu(
+        m_uiPtr->tbtn_drawRect,
+        static_cast<int>(ImgGraphicsView::ToolMode::Rect),
+        buttonPosition);
+}
+
+// 显示Pick按钮的参数生成右键菜单。
+void ImageViewerWindow::onPickToolContextMenuRequested(
+    const QPoint& buttonPosition)
+{
+    showParameterGenerationMenu(
+        m_uiPtr->tbtn_pickPixel,
+        static_cast<int>(ImgGraphicsView::ToolMode::Pick),
+        buttonPosition);
+}
+
+// 显示临时菜单并非模态打开对应工具的置顶参数窗口。
+void ImageViewerWindow::showParameterGenerationMenu(
+    QToolButton* toolButtonPtr,
+    int toolModeId,
+    const QPoint& buttonPosition)
+{
+    if (toolButtonPtr == nullptr)
+    {
+        return;
+    }
+
+    QMenu contextMenu(this);
+    QAction* generateActionPtr =
+        contextMenu.addAction(tr("Generate by Parameters..."));
+    generateActionPtr->setEnabled(m_uiPtr->gview_mainImage->hasImage());
+    QAction* selectedActionPtr = contextMenu.exec(
+        toolButtonPtr->mapToGlobal(buttonPosition));
+    if (selectedActionPtr != generateActionPtr)
+    {
+        return;
+    }
+
+    ParameterGenerationDialog* parameterDialogPtr =
+        new ParameterGenerationDialog(
+            static_cast<ImgGraphicsView::ToolMode>(toolModeId),
+            m_uiPtr->gview_mainImage,
+            this);
+    parameterDialogPtr->show();
+    parameterDialogPtr->raise();
+    parameterDialogPtr->activateWindow();
 }
 
 // 显示Pick到的逻辑图像零基整数像素坐标。

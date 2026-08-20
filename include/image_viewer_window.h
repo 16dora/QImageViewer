@@ -18,6 +18,7 @@ namespace Ui { class ImageViewerWindow; }
 QT_END_NAMESPACE
 
 class MultiCurvePlot;
+class QToolButton;
 
 namespace image_viewer {
 
@@ -80,6 +81,18 @@ private slots:
 
     // Pick点被清除后将坐标标签恢复为无效状态。
     void onPixelPickCleared();
+
+    // 显示Line按钮的参数生成右键菜单。
+    void onLineToolContextMenuRequested(const QPoint& buttonPosition);
+
+    // 显示Circle按钮的参数生成右键菜单。
+    void onCircleToolContextMenuRequested(const QPoint& buttonPosition);
+
+    // 显示Rect按钮的参数生成右键菜单。
+    void onRectToolContextMenuRequested(const QPoint& buttonPosition);
+
+    // 显示Pick按钮的参数生成右键菜单。
+    void onPickToolContextMenuRequested(const QPoint& buttonPosition);
 
 private:
     // 强度剖面的逻辑图像坐标轴方向。
@@ -207,6 +220,14 @@ private:
     // 输出：无。
     // 作用：根据已提交的翻转状态同步两个切换按钮的选中状态和文本。
     void updateFlipButtonUiState();
+
+    // 输入：被右键点击的工具按钮、工具编号和按钮局部坐标。
+    // 输出：无。
+    // 作用：显示临时菜单并非模态打开置顶参数窗口。
+    void showParameterGenerationMenu(
+        QToolButton* toolButtonPtr,
+        int toolModeId,
+        const QPoint& buttonPosition);
 
     // 输入：无。
     // 输出：无。

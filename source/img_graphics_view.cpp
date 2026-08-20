@@ -27,8 +27,8 @@ ImgGraphicsView::ImgGraphicsView(QWidget* parent)
     , m_pickHorizontalLinePtr(nullptr)
     , m_pickVerticalLinePtr(nullptr)
     , m_selectedDrawingItemPtr(nullptr)
-    , m_toolMode(ToolMode::Roi)
-    , m_activeDrawingMode(ToolMode::Roi)
+    , m_toolMode(ToolMode::None)
+    , m_activeDrawingMode(ToolMode::None)
     , m_isDrawing(false)
     , m_hasExceededDragThreshold(false)
     , m_isPanning(false)
@@ -224,6 +224,150 @@ void ImgGraphicsView::setToolMode(ToolMode toolMode)
     cancelDrawing();
     clearDrawingSelection();
     m_toolMode = toolMode;
+}
+
+// 判断当前场景是否已经包含有效底图。
+bool ImgGraphicsView::hasImage() const
+{
+    return m_pixmapItemPtr != nullptr
+           && !m_pixmapItemPtr->pixmap().isNull();
+}
+
+// 返回当前显示画布的原始像素尺寸。
+QSize ImgGraphicsView::canvasSize() const
+{
+    if (!hasImage())
+    {
+        return QSize();
+    }
+
+    return m_pixmapItemPtr->pixmap().size();
+}
+
+// 返回Pick和强度曲线使用的逻辑源图像尺寸。
+QSize ImgGraphicsView::sourceImageSize() const
+{
+    return m_sourceImageSize;
+}
+
+// 按当前画布整数坐标生成不默认选中的直线。
+bool ImgGraphicsView::generateLineByParameters(
+    const QPoint& startPosition,
+    const QPoint& endPosition)
+{
+    if (!hasImage() || startPosition == endPosition)
+    {
+        return false;
+    }
+
+    const QRectF canvasRect = m_pixmapItemPtr->sceneBoundingRect();
+    const bool isStartPositionValid =
+        startPosition.x() >= canvasRect.left()
+        && startPosition.y() >= canvasRect.top()
+        && startPosition.x() <= canvasRect.right()
+        && startPosition.y() <= canvasRect.bottom();
+    const bool isEndPositionValid =
+        endPosition.x() >= canvasRect.left()
+        && endPosition.y() >= canvasRect.top()
+        && endPosition.x() <= canvasRect.right()
+        && endPosition.y() <= canvasRect.bottom();
+    if (!isStartPositionValid || !isEndPositionValid)
+    {
+        return false;
+    }
+
+    QGraphicsLineItem* lineItemPtr = m_scenePtr->addLine(
+        QLineF(startPosition, endPosition),
+        createOverlayPen(QColorConstants::Svg::skyblue));
+    lineItemPtr->setFlag(QGraphicsItem::ItemIsSelectable, true);
+    lineItemPtr->setZValue(1.0);
+    m_drawingItems.append(DrawingItemRecord{ToolMode::Line, lineItemPtr});
+    return true;
+}
+
+// 按当前画布整数圆心和半径生成不默认选中的圆。
+bool ImgGraphicsView::generateCircleByParameters(
+    const QPoint& centerPosition,
+    int radius)
+{
+    if (!hasImage() || radius <= 0)
+    {
+        return false;
+    }
+
+    const QRectF canvasRect = m_pixmapItemPtr->sceneBoundingRect();
+    const QRectF circleRect(
+        centerPosition.x() - radius,
+        centerPosition.y() - radius,
+        radius * 2.0,
+        radius * 2.0);
+    if (circleRect.left() < canvasRect.left()
+        || circleRect.top() < canvasRect.top()
+        || circleRect.right() > canvasRect.right()
+        || circleRect.bottom() > canvasRect.bottom())
+    {
+        return false;
+    }
+
+    QGraphicsEllipseItem* circleItemPtr = m_scenePtr->addEllipse(
+        circleRect,
+        createOverlayPen(QColorConstants::Svg::skyblue),
+        Qt::NoBrush);
+    circleItemPtr->setFlag(QGraphicsItem::ItemIsSelectable, true);
+    circleItemPtr->setZValue(1.0);
+    m_drawingItems.append(DrawingItemRecord{ToolMode::Circle, circleItemPtr});
+    return true;
+}
+
+// 按当前画布整数左上角和尺寸生成不默认选中的矩形。
+bool ImgGraphicsView::generateRectByParameters(
+    const QPoint& startPosition,
+    const QSize& rectSize)
+{
+    if (!hasImage()
+        || rectSize.width() <= 0
+        || rectSize.height() <= 0)
+    {
+        return false;
+    }
+
+    const QRectF canvasRect = m_pixmapItemPtr->sceneBoundingRect();
+    const QRectF rect(
+        startPosition.x(),
+        startPosition.y(),
+        rectSize.width(),
+        rectSize.height());
+    if (rect.left() < canvasRect.left()
+        || rect.top() < canvasRect.top()
+        || rect.right() > canvasRect.right()
+        || rect.bottom() > canvasRect.bottom())
+    {
+        return false;
+    }
+
+    QGraphicsRectItem* rectItemPtr = m_scenePtr->addRect(
+        rect,
+        createOverlayPen(QColorConstants::Svg::skyblue),
+        Qt::NoBrush);
+    rectItemPtr->setFlag(QGraphicsItem::ItemIsSelectable, true);
+    rectItemPtr->setZValue(1.0);
+    m_drawingItems.append(DrawingItemRecord{ToolMode::Rect, rectItemPtr});
+    return true;
+}
+
+// 按逻辑图像零基整数像素坐标更新唯一Pick点。
+bool ImgGraphicsView::generatePickByParameters(
+    const QPoint& sourcePixelPosition)
+{
+    if (!hasImage()
+        || !QRect(QPoint(0, 0), m_sourceImageSize)
+                .contains(sourcePixelPosition))
+    {
+        return false;
+    }
+
+    updatePickedPixel(sourcePixelPosition);
+    return true;
 }
 
 // 根据滚轮方向等比例缩放图片并同步覆盖图形与倍率。
@@ -706,6 +850,14 @@ void ImgGraphicsView::pickPixelAt(const QPointF& scenePosition)
         return;
     }
 
+    updatePickedPixel(QPoint(sourcePixelX, sourcePixelY));
+}
+
+// 使用有效逻辑像素坐标更新唯一Pick标记、参考线和坐标信号。
+void ImgGraphicsView::updatePickedPixel(const QPoint& sourcePixelPosition)
+{
+    const int sourcePixelX = sourcePixelPosition.x();
+    const int sourcePixelY = sourcePixelPosition.y();
     const QPointF sourcePixelCenter(
         sourcePixelX + 0.5,
         sourcePixelY + 0.5);
@@ -802,6 +954,13 @@ void ImgGraphicsView::mousePressEvent(QMouseEvent* eventPtr)
     }
 
     if (eventPtr->button() == Qt::LeftButton
+        && m_toolMode == ToolMode::None)
+    {
+        eventPtr->accept();
+        return;
+    }
+
+    if (eventPtr->button() == Qt::LeftButton
         && isViewPositionInsideImage(currentViewPosition))
     {
         setFocus(Qt::MouseFocusReason);
@@ -812,6 +971,19 @@ void ImgGraphicsView::mousePressEvent(QMouseEvent* eventPtr)
     }
 
     QGraphicsView::mousePressEvent(eventPtr);
+}
+
+// 无工具状态下吞掉左键双击，避免场景项接收到选择操作。
+void ImgGraphicsView::mouseDoubleClickEvent(QMouseEvent* eventPtr)
+{
+    if (eventPtr->button() == Qt::LeftButton
+        && m_toolMode == ToolMode::None)
+    {
+        eventPtr->accept();
+        return;
+    }
+
+    QGraphicsView::mouseDoubleClickEvent(eventPtr);
 }
 
 // 根据当前交互状态更新平移位置或实时绘图预览。

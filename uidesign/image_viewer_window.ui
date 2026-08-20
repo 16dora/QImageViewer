@@ -56,7 +56,7 @@
                <bool>true</bool>
               </property>
               <property name="checked">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <attribute name="buttonGroup">
                <string notr="true">buttonGroup_imageToolMode</string>
@@ -258,7 +258,7 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>2</number>
+           <number>0</number>
           </property>
           <widget class="QWidget" name="widget_imageProcessingPage">
            <attribute name="title">
@@ -692,7 +692,7 @@
  <buttongroups>
   <buttongroup name="buttonGroup_imageToolMode">
    <property name="exclusive">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
   </buttongroup>
  </buttongroups>
