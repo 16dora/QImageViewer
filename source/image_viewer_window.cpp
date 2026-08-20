@@ -6,7 +6,11 @@
 
 #include <QButtonGroup>
 #include <QColor>
+#include <QCoreApplication>
+#include <QDateTime>
+#include <QDir>
 #include <QFileDialog>
+#include <QImageWriter>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
@@ -188,6 +192,75 @@ void ImageViewerWindow::on_btn_rotateImage_clicked()
         selectedRotationAngleDegree,
         m_isVerticalFlipEnabled,
         m_isHorizontalFlipEnabled);
+}
+
+// 将当前变换图像按时间戳命名并保存到应用程序Save目录。
+void ImageViewerWindow::on_btn_saveImage_clicked()
+{
+    if (m_currentImage.isNull())
+    {
+        statusBar()->showMessage(
+            tr("[ImageViewer] No image is available to save."),
+            STATUS_MESSAGE_TIMEOUT_MS);
+        return;
+    }
+
+    m_uiPtr->btn_saveImage->setEnabled(false);
+    const QString saveDirectoryPath =
+        QDir(QCoreApplication::applicationDirPath()).filePath(
+            QStringLiteral("Save"));
+    QDir directoryCreator;
+    if (!directoryCreator.mkpath(saveDirectoryPath))
+    {
+        m_uiPtr->btn_saveImage->setEnabled(true);
+        statusBar()->showMessage(
+            tr("[ImageViewer] Failed to create save directory '%1'.")
+                .arg(QDir::toNativeSeparators(saveDirectoryPath)),
+            STATUS_MESSAGE_TIMEOUT_MS);
+        return;
+    }
+
+    QImage imageToSave = m_currentImage;
+    if (m_uiPtr->check_keepOverlay->isChecked())
+    {
+        imageToSave = m_uiPtr->gview_mainImage->createImageWithOverlays(
+            m_currentImage);
+    }
+    if (imageToSave.isNull())
+    {
+        m_uiPtr->btn_saveImage->setEnabled(true);
+        statusBar()->showMessage(
+            tr("[ImageViewer] Failed to prepare the image for saving."),
+            STATUS_MESSAGE_TIMEOUT_MS);
+        return;
+    }
+
+    const QString imageFormat =
+        m_uiPtr->cbox_imageFormat->currentText().trimmed().toLower();
+    const QString imageFileName =
+        QDateTime::currentDateTime().toString(
+            QStringLiteral("yyyyMMddHHmmsszzz"))
+        + QStringLiteral(".") + imageFormat;
+    const QString imageFilePath =
+        QDir(saveDirectoryPath).filePath(imageFileName);
+    QImageWriter imageWriter(imageFilePath, imageFormat.toLatin1());
+    const bool isSaved = imageWriter.write(imageToSave);
+    m_uiPtr->btn_saveImage->setEnabled(true);
+    if (!isSaved)
+    {
+        statusBar()->showMessage(
+            tr("[ImageViewer] Failed to save image '%1': %2")
+                .arg(
+                    QDir::toNativeSeparators(imageFilePath),
+                    imageWriter.errorString()),
+            STATUS_MESSAGE_TIMEOUT_MS);
+        return;
+    }
+
+    statusBar()->showMessage(
+        tr("[ImageViewer] Saved image to '%1'.")
+            .arg(QDir::toNativeSeparators(imageFilePath)),
+        STATUS_MESSAGE_TIMEOUT_MS);
 }
 
 // 根据切换状态重新生成绕竖直中轴左右翻转的当前图像。

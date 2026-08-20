@@ -39,6 +39,9 @@ private slots:
     // 按下旋转按钮后将原图旋转到当前选择的绝对角度。
     void on_btn_rotateImage_clicked();
 
+    // 将当前变换图像按所选格式保存到应用程序Save目录。
+    void on_btn_saveImage_clicked();
+
     // 根据按钮状态启用或取消绕竖直中轴的左右翻转。
     void on_btn_verticalFlip_clicked(bool isChecked);
 

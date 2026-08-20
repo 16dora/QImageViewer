@@ -8,6 +8,7 @@
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
 #include <QGraphicsView>
+#include <QImage>
 #include <QPen>
 #include <QPixmap>
 #include <QPoint>
@@ -48,6 +49,11 @@ public:
     void setImage(const QPixmap& pixmap,
                   const QTransform& currentToSourceTransform,
                   const QSize& sourceImageSize);
+
+    // 输入：与当前场景图片尺寸一致的底图。
+    // 输出：叠加已提交普通图形和Pick标记的原始像素尺寸图像。
+    // 作用：导出时排除ROI、选择外框、绘制预览和视口导航图。
+    QImage createImageWithOverlays(const QImage& baseImage) const;
 
     // 输入：需要激活的互斥工具模式。
     // 输出：无。
@@ -108,6 +114,12 @@ private:
 
     // Pick标记固定保持的边长，单位为视图像素。
     static constexpr qreal PICK_MARKER_SIZE_VIEW_PIXELS = 4.0;
+
+    // 导出覆盖线条的固定宽度，单位为输出图像像素。
+    static constexpr qreal EXPORT_OVERLAY_PEN_WIDTH_IMAGE_PIXELS = 2.0;
+
+    // 导出Pick标记的固定边长，单位为输出图像像素。
+    static constexpr qreal EXPORT_PICK_MARKER_SIZE_IMAGE_PIXELS = 4.0;
 
     // 图形单选使用的不可见命中半径，单位为视图像素。
     static constexpr qreal SELECTION_HIT_TOLERANCE_VIEW_PIXELS = 5.0;

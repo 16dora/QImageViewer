@@ -74,6 +74,112 @@ void ImgGraphicsView::setImage(
     fitImageInView();
 }
 
+// 在当前图像原始像素画布上绘制普通图形和Pick标记。
+QImage ImgGraphicsView::createImageWithOverlays(const QImage& baseImage) const
+{
+    if (baseImage.isNull() || m_pixmapItemPtr == nullptr)
+    {
+        return QImage();
+    }
+    if (m_drawingItems.isEmpty()
+        && m_pickItemPtr == nullptr
+        && m_pickHorizontalLinePtr == nullptr
+        && m_pickVerticalLinePtr == nullptr)
+    {
+        return baseImage;
+    }
+
+    QImage overlayImage;
+    switch (baseImage.format())
+    {
+    case QImage::Format_Grayscale16:
+    case QImage::Format_RGBX64:
+    case QImage::Format_RGBA64:
+    case QImage::Format_RGBA64_Premultiplied:
+        overlayImage = baseImage.convertToFormat(QImage::Format_RGBA64);
+        break;
+    default:
+        overlayImage = baseImage.convertToFormat(QImage::Format_ARGB32);
+        break;
+    }
+    if (overlayImage.isNull())
+    {
+        return QImage();
+    }
+
+    const QRectF imageSceneRect = m_pixmapItemPtr->sceneBoundingRect();
+    if (imageSceneRect.isEmpty())
+    {
+        return QImage();
+    }
+
+    const qreal sceneToImageScaleX =
+        static_cast<qreal>(overlayImage.width()) / imageSceneRect.width();
+    const qreal sceneToImageScaleY =
+        static_cast<qreal>(overlayImage.height()) / imageSceneRect.height();
+    QPainter painter(&overlayImage);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.scale(sceneToImageScaleX, sceneToImageScaleY);
+
+    QPen drawingPen(
+        QColorConstants::Svg::skyblue,
+        EXPORT_OVERLAY_PEN_WIDTH_IMAGE_PIXELS);
+    drawingPen.setCosmetic(true);
+    painter.setPen(drawingPen);
+    painter.setBrush(Qt::NoBrush);
+    for (const DrawingItemRecord& drawingItem : m_drawingItems)
+    {
+        if (drawingItem.itemPtr == nullptr)
+        {
+            continue;
+        }
+        if (drawingItem.toolMode == ToolMode::Line)
+        {
+            painter.drawLine(
+                static_cast<QGraphicsLineItem*>(drawingItem.itemPtr)->line());
+        }
+        else if (drawingItem.toolMode == ToolMode::Circle)
+        {
+            painter.drawEllipse(
+                static_cast<QGraphicsEllipseItem*>(drawingItem.itemPtr)->rect());
+        }
+        else if (drawingItem.toolMode == ToolMode::Rect)
+        {
+            painter.drawRect(
+                static_cast<QGraphicsRectItem*>(drawingItem.itemPtr)->rect());
+        }
+    }
+
+    QPen pickLinePen(Qt::yellow, EXPORT_OVERLAY_PEN_WIDTH_IMAGE_PIXELS);
+    pickLinePen.setCosmetic(true);
+    painter.setPen(pickLinePen);
+    if (m_pickHorizontalLinePtr != nullptr)
+    {
+        painter.drawLine(m_pickHorizontalLinePtr->line());
+    }
+    if (m_pickVerticalLinePtr != nullptr)
+    {
+        painter.drawLine(m_pickVerticalLinePtr->line());
+    }
+
+    if (m_pickItemPtr != nullptr)
+    {
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QColorConstants::Svg::skyblue);
+        const qreal markerSceneWidth =
+            EXPORT_PICK_MARKER_SIZE_IMAGE_PIXELS / sceneToImageScaleX;
+        const qreal markerSceneHeight =
+            EXPORT_PICK_MARKER_SIZE_IMAGE_PIXELS / sceneToImageScaleY;
+        painter.drawRect(QRectF(
+            m_pickSceneCenter.x() - markerSceneWidth / 2.0,
+            m_pickSceneCenter.y() - markerSceneHeight / 2.0,
+            markerSceneWidth,
+            markerSceneHeight));
+    }
+
+    return overlayImage;
+}
+
 // 切换互斥工具并取消旧工具尚未完成的预览与选择。
 void ImgGraphicsView::setToolMode(ToolMode toolMode)
 {
