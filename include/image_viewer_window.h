@@ -54,14 +54,14 @@ private slots:
     // 接收工具按钮组编号并切换图片视图左键模式。
     void onImageToolModeButtonClicked(int buttonId);
 
-    // 接收Pick到的原图零基像素坐标并更新标签。
-    void onPixelPicked(const QPoint& originalPixelPosition);
+    // 接收Pick到的逻辑图像零基像素坐标并更新标签。
+    void onPixelPicked(const QPoint& logicalPixelPosition);
 
     // Pick点被清除后将坐标标签恢复为无效状态。
     void onPixelPickCleared();
 
 private:
-    // 强度剖面的原图坐标轴方向。
+    // 强度剖面的逻辑图像坐标轴方向。
     enum class ProfileAxis
     {
         X,
@@ -107,15 +107,21 @@ private:
     // 强度剖面不显示独立采样点。
     static constexpr int PROFILE_CURVE_POINT_SIZE = 0;
 
-    // 输入：目标顺时针旋转角度、两个翻转状态和变换结果输出指针。
-    // 输出：使用黑色背景承载并完成指定翻转的当前图像。
-    // 作用：始终从原图生成旋转与翻转组合结果及Pick坐标变换。
-    QImage createTransformedImage(
-        double rotationAngleDegree,
+    // 输入：两个翻转状态。
+    // 输出：以翻转后左上角为原点的逻辑图像。
+    // 作用：从原图生成保持原始尺寸、格式和位深的Plot数据源。
+    QImage createFlippedImage(
         bool isVerticalFlipEnabled,
-        bool isHorizontalFlipEnabled,
+        bool isHorizontalFlipEnabled) const;
+
+    // 输入：逻辑图像、目标顺时针旋转角度和变换结果输出指针。
+    // 输出：使用黑色背景承载的绝对角度旋转图像。
+    // 作用：只旋转逻辑图像并生成当前画布到逻辑图像的Pick变换。
+    QImage createRotatedImage(
+        const QImage& logicalImage,
+        double rotationAngleDegree,
         QPolygonF* validImagePolygonPtr,
-        QTransform* currentToOriginalTransformPtr) const;
+        QTransform* currentToLogicalTransformPtr) const;
 
     // 输入：目标顺时针旋转角度和两个翻转状态。
     // 输出：成功生成并显示组合变换图像时返回true。
@@ -140,10 +146,10 @@ private:
     // 作用：使用统一样式注册Gray、R、G和B四条稳定ID曲线。
     void addIntensityProfileCurves(MultiCurvePlot* profilePlotPtr);
 
-    // 输入：当前Pick到的原图零基像素坐标。
+    // 输入：当前Pick到的逻辑图像零基像素坐标。
     // 输出：无。
-    // 作用：从未旋转原图生成X行和Y列的灰度或RGB强度曲线。
-    void updateIntensityProfiles(const QPoint& originalPixelPosition);
+    // 作用：从翻转后的逻辑图像生成X行和Y列的灰度或RGB强度曲线。
+    void updateIntensityProfiles(const QPoint& logicalPixelPosition);
 
     // 输入：无。
     // 输出：无。
@@ -151,16 +157,16 @@ private:
     void clearIntensityProfiles();
 
     // 输入：剖面方向、固定坐标和需要读取的图像通道。
-    // 输出：以原图像素索引为横坐标的强度样本。
-    // 作用：统一生成完整原图行或列的Plot数据。
+    // 输出：以逻辑图像像素索引为横坐标的强度样本。
+    // 作用：统一生成完整逻辑图像行或列的Plot数据。
     QVector<QPointF> createProfileSamples(
         ProfileAxis profileAxis,
         int fixedPixelPosition,
         ImageChannel imageChannel) const;
 
-    // 输入：原图零基像素坐标和通道。
+    // 输入：逻辑图像零基像素坐标和通道。
     // 输出：保持原始八位或十六位范围的通道强度。
-    // 作用：按QImage像素格式准确读取灰度或RGB值。
+    // 作用：按逻辑图像的QImage像素格式准确读取灰度或RGB值。
     double pixelIntensityAt(
         int pixelX,
         int pixelY,
@@ -189,13 +195,14 @@ private:
         const QRect& roiRect) const;
 
     std::unique_ptr<Ui::ImageViewerWindow> m_uiPtr; // 独占UI对象。
-    std::unique_ptr<MultiCurvePlot> m_xProfilePlotPtr; // 原图X行强度Plot控制器。
-    std::unique_ptr<MultiCurvePlot> m_yProfilePlotPtr; // 原图Y列强度Plot控制器。
+    std::unique_ptr<MultiCurvePlot> m_xProfilePlotPtr; // 逻辑图像X行强度Plot控制器。
+    std::unique_ptr<MultiCurvePlot> m_yProfilePlotPtr; // 逻辑图像Y列强度Plot控制器。
     QImage m_originalImage;                        // 当前加载且保持格式的原始图像数据。
-    QImage m_currentImage;                         // 当前旋转与翻转组合后的图像数据。
+    QImage m_logicalImage;                         // 以翻转后左上角为原点的Plot数据源。
+    QImage m_currentImage;                         // 逻辑图像绝对旋转后的显示数据。
     QImage m_currentRoiImage;                      // 不包含任何辅助标记的当前ROI数据。
-    QPolygonF m_validImagePolygon;                 // 当前变换后真实原图内容的闭合轮廓。
-    QTransform m_currentToOriginalTransform;       // 当前变换画布到原图的Pick变换。
+    QPolygonF m_validImagePolygon;                 // 旋转后逻辑图像内容的闭合轮廓。
+    QTransform m_currentToLogicalTransform;        // 当前画布到逻辑图像的Pick变换。
     double m_currentRotationAngleDegree;           // 当前顺时针绝对旋转角度。
     bool m_isVerticalFlipEnabled;                  // 是否绕竖直中轴左右翻转。
     bool m_isHorizontalFlipEnabled;                // 是否绕水平中轴上下翻转。

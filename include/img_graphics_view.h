@@ -42,12 +42,12 @@ public:
     // 创建图片交互视图并初始化场景。
     explicit ImgGraphicsView(QWidget* parent = nullptr);
 
-    // 输入：需要显示的图片、当前画布到原图的变换和原图尺寸。
+    // 输入：需要显示的图片、当前画布到逻辑源图的变换和源图尺寸。
     // 输出：无。
     // 作用：替换当前图片、清除覆盖图形并自适应视图大小。
     void setImage(const QPixmap& pixmap,
-                  const QTransform& currentToOriginalTransform,
-                  const QSize& originalImageSize);
+                  const QTransform& currentToSourceTransform,
+                  const QSize& sourceImageSize);
 
     // 输入：需要激活的互斥工具模式。
     // 输出：无。
@@ -83,8 +83,8 @@ signals:
     // 图片显示倍率变化后发出实际倍率。
     void zoomChanged(double scaleFactor);
 
-    // Pick到有效原图像素后发出零基整数坐标。
-    void pixelPicked(const QPoint& originalPixelPosition);
+    // Pick到有效逻辑源图像素后发出零基整数坐标。
+    void pixelPicked(const QPoint& sourcePixelPosition);
 
     // Pick点被替换为无效点或删除后通知清空坐标显示。
     void pixelPickCleared();
@@ -235,7 +235,7 @@ private:
 
     // 输入：无。
     // 输出：无。
-    // 作用：移除唯一Pick标记和两条原图坐标参考线。
+    // 作用：移除唯一Pick标记和两条逻辑源图坐标参考线。
     void clearPickedPixel();
 
     // 输入：无。
@@ -263,13 +263,13 @@ private:
     QGraphicsRectItem* m_roiItemPtr;        // 由m_scenePtr管理。
     QGraphicsItem* m_drawingPreviewItemPtr; // 由m_scenePtr管理的实时预览。
     QGraphicsRectItem* m_pickItemPtr;        // 由m_scenePtr管理的唯一Pick标记。
-    QGraphicsLineItem* m_pickHorizontalLinePtr; // 由m_scenePtr管理的原图水平参考线。
-    QGraphicsLineItem* m_pickVerticalLinePtr;   // 由m_scenePtr管理的原图垂直参考线。
+    QGraphicsLineItem* m_pickHorizontalLinePtr; // 由m_scenePtr管理的逻辑源图水平参考线。
+    QGraphicsLineItem* m_pickVerticalLinePtr;   // 由m_scenePtr管理的逻辑源图垂直参考线。
     QGraphicsItem* m_selectedDrawingItemPtr; // 当前唯一选中的普通绘图观察指针。
     QVector<DrawingItemRecord> m_drawingItems; // 当前画布中的可删除绘图集合。
-    QTransform m_currentToOriginalTransform;   // 当前画布坐标到原图坐标的变换。
-    QTransform m_originalToCurrentTransform;   // 原图坐标到当前画布坐标的变换。
-    QSize m_originalImageSize;                 // 原图像素尺寸。
+    QTransform m_currentToSourceTransform;     // 当前画布坐标到逻辑源图坐标的变换。
+    QTransform m_sourceToCurrentTransform;     // 逻辑源图坐标到当前画布坐标的变换。
+    QSize m_sourceImageSize;                   // 逻辑源图像素尺寸。
     ToolMode m_toolMode;                       // 当前激活的互斥工具模式。
     ToolMode m_activeDrawingMode;              // 本次实时预览所属工具模式。
     QPointF m_drawingStartPos;                 // 本次绘制起始场景坐标。

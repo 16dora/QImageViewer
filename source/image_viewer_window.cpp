@@ -214,73 +214,18 @@ void ImageViewerWindow::on_btn_opticsHorizontalFlip_clicked(bool isChecked)
     }
 }
 
-// 始终从原图生成绝对旋转与双向翻转组合后的图像。
-QImage ImageViewerWindow::createTransformedImage(
-    double rotationAngleDegree,
+// 从原图生成以翻转后左上角为原点的逻辑图像。
+QImage ImageViewerWindow::createFlippedImage(
     bool isVerticalFlipEnabled,
-    bool isHorizontalFlipEnabled,
-    QPolygonF* validImagePolygonPtr,
-    QTransform* currentToOriginalTransformPtr) const
+    bool isHorizontalFlipEnabled) const
 {
-    if (m_originalImage.isNull()
-        || validImagePolygonPtr == nullptr
-        || currentToOriginalTransformPtr == nullptr)
+    if (m_originalImage.isNull())
     {
         return QImage();
     }
-
-    QImage rotatedImage;
-    QTransform originalToRotatedTransform;
-    if (qAbs(rotationAngleDegree) < ROTATION_ANGLE_EPSILON)
+    if (!isVerticalFlipEnabled && !isHorizontalFlipEnabled)
     {
-        rotatedImage = m_originalImage;
-    }
-    else
-    {
-        QTransform rotationTransform;
-        rotationTransform.rotate(rotationAngleDegree);
-        originalToRotatedTransform = QImage::trueMatrix(
-            rotationTransform,
-            m_originalImage.width(),
-            m_originalImage.height());
-
-        const QImage transformedImage = m_originalImage.transformed(
-            rotationTransform, Qt::SmoothTransformation);
-        const bool isSixteenBitImage = isOriginalImageSixteenBit();
-        rotatedImage = QImage(
-            transformedImage.size(),
-            isSixteenBitImage ? QImage::Format_RGBA64 : QImage::Format_ARGB32);
-        rotatedImage.fill(Qt::black);
-        QPainter painter(&rotatedImage);
-        painter.drawImage(0, 0, transformedImage);
-    }
-
-    const qreal horizontalScale = isVerticalFlipEnabled ? -1.0 : 1.0;
-    const qreal verticalScale = isHorizontalFlipEnabled ? -1.0 : 1.0;
-    const qreal horizontalOffset = isVerticalFlipEnabled
-        ? rotatedImage.width()
-        : 0.0;
-    const qreal verticalOffset = isHorizontalFlipEnabled
-        ? rotatedImage.height()
-        : 0.0;
-    const QTransform rotatedToCurrentTransform(
-        horizontalScale,
-        0.0,
-        0.0,
-        verticalScale,
-        horizontalOffset,
-        verticalOffset);
-    const QTransform originalToCurrentTransform =
-        originalToRotatedTransform * rotatedToCurrentTransform;
-    *validImagePolygonPtr = originalToCurrentTransform.map(
-        QPolygonF(QRectF(m_originalImage.rect())));
-
-    bool isInvertible = false;
-    *currentToOriginalTransformPtr =
-        originalToCurrentTransform.inverted(&isInvertible);
-    if (!isInvertible)
-    {
-        return QImage();
+        return m_originalImage;
     }
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
@@ -293,12 +238,62 @@ QImage ImageViewerWindow::createTransformedImage(
     {
         flipOrientations |= Qt::Vertical;
     }
-    return rotatedImage.flipped(flipOrientations);
+    return m_originalImage.flipped(flipOrientations);
 #else
-    return rotatedImage.mirrored(
+    return m_originalImage.mirrored(
         isVerticalFlipEnabled,
         isHorizontalFlipEnabled);
 #endif
+}
+
+// 从逻辑图像生成指定绝对角度的黑色背景旋转图像。
+QImage ImageViewerWindow::createRotatedImage(
+    const QImage& logicalImage,
+    double rotationAngleDegree,
+    QPolygonF* validImagePolygonPtr,
+    QTransform* currentToLogicalTransformPtr) const
+{
+    if (logicalImage.isNull()
+        || validImagePolygonPtr == nullptr
+        || currentToLogicalTransformPtr == nullptr)
+    {
+        return QImage();
+    }
+
+    if (qAbs(rotationAngleDegree) < ROTATION_ANGLE_EPSILON)
+    {
+        *validImagePolygonPtr = QPolygonF(QRectF(logicalImage.rect()));
+        *currentToLogicalTransformPtr = QTransform();
+        return logicalImage;
+    }
+
+    QTransform rotationTransform;
+    rotationTransform.rotate(rotationAngleDegree);
+    const QTransform logicalToCurrentTransform = QImage::trueMatrix(
+        rotationTransform,
+        logicalImage.width(),
+        logicalImage.height());
+    *validImagePolygonPtr = logicalToCurrentTransform.map(
+        QPolygonF(QRectF(logicalImage.rect())));
+
+    bool isInvertible = false;
+    *currentToLogicalTransformPtr =
+        logicalToCurrentTransform.inverted(&isInvertible);
+    if (!isInvertible)
+    {
+        return QImage();
+    }
+
+    const QImage transformedImage = logicalImage.transformed(
+        rotationTransform, Qt::SmoothTransformation);
+    const bool isSixteenBitImage = isOriginalImageSixteenBit();
+    QImage rotatedImage(
+        transformedImage.size(),
+        isSixteenBitImage ? QImage::Format_RGBA64 : QImage::Format_ARGB32);
+    rotatedImage.fill(Qt::black);
+    QPainter painter(&rotatedImage);
+    painter.drawImage(0, 0, transformedImage);
+    return rotatedImage;
 }
 
 // 生成并提交当前绝对旋转与双向翻转状态对应的显示图像。
@@ -307,30 +302,38 @@ bool ImageViewerWindow::applyImageTransform(
     bool isVerticalFlipEnabled,
     bool isHorizontalFlipEnabled)
 {
-    QPolygonF validImagePolygon;
-    QTransform currentToOriginalTransform;
-    const QImage transformedImage = createTransformedImage(
-        rotationAngleDegree,
+    const QImage logicalImage = createFlippedImage(
         isVerticalFlipEnabled,
-        isHorizontalFlipEnabled,
+        isHorizontalFlipEnabled);
+    if (logicalImage.isNull())
+    {
+        return false;
+    }
+
+    QPolygonF validImagePolygon;
+    QTransform currentToLogicalTransform;
+    const QImage transformedImage = createRotatedImage(
+        logicalImage,
+        rotationAngleDegree,
         &validImagePolygon,
-        &currentToOriginalTransform);
+        &currentToLogicalTransform);
     if (transformedImage.isNull())
     {
         return false;
     }
 
+    m_logicalImage = logicalImage;
     m_currentImage = transformedImage;
     m_validImagePolygon = validImagePolygon;
-    m_currentToOriginalTransform = currentToOriginalTransform;
+    m_currentToLogicalTransform = currentToLogicalTransform;
     m_currentRotationAngleDegree = rotationAngleDegree;
     m_isVerticalFlipEnabled = isVerticalFlipEnabled;
     m_isHorizontalFlipEnabled = isHorizontalFlipEnabled;
     updateFlipButtonUiState();
     m_uiPtr->gview_mainImage->setImage(
         QPixmap::fromImage(m_currentImage),
-        m_currentToOriginalTransform,
-        m_originalImage.size());
+        m_currentToLogicalTransform,
+        m_logicalImage.size());
     resetRoiPreview();
     return true;
 }
@@ -457,14 +460,14 @@ void ImageViewerWindow::onImageToolModeButtonClicked(int buttonId)
     m_uiPtr->gview_mainImage->setFocus(Qt::ShortcutFocusReason);
 }
 
-// 显示Pick到的原图零基整数像素坐标。
-void ImageViewerWindow::onPixelPicked(const QPoint& originalPixelPosition)
+// 显示Pick到的逻辑图像零基整数像素坐标。
+void ImageViewerWindow::onPixelPicked(const QPoint& logicalPixelPosition)
 {
     m_uiPtr->label_PickedPixel->setText(
         tr("X: %1,Y:%2")
-            .arg(originalPixelPosition.x())
-            .arg(originalPixelPosition.y()));
-    updateIntensityProfiles(originalPixelPosition);
+            .arg(logicalPixelPosition.x())
+            .arg(logicalPixelPosition.y()));
+    updateIntensityProfiles(logicalPixelPosition);
 }
 
 // 将Pick标签和两个强度Plot恢复为无有效点状态。
@@ -474,12 +477,12 @@ void ImageViewerWindow::onPixelPickCleared()
     clearIntensityProfiles();
 }
 
-// 从未旋转原图生成当前Pick位置的X行与Y列强度曲线。
+// 从翻转后的逻辑图像生成当前Pick位置的X行与Y列强度曲线。
 void ImageViewerWindow::updateIntensityProfiles(
-    const QPoint& originalPixelPosition)
+    const QPoint& logicalPixelPosition)
 {
-    if (m_originalImage.isNull()
-        || !m_originalImage.rect().contains(originalPixelPosition)
+    if (m_logicalImage.isNull()
+        || !m_logicalImage.rect().contains(logicalPixelPosition)
         || m_xProfilePlotPtr == nullptr
         || m_yProfilePlotPtr == nullptr)
     {
@@ -503,13 +506,13 @@ void ImageViewerWindow::updateIntensityProfiles(
             QStringLiteral("gray"),
             createProfileSamples(
                 ProfileAxis::X,
-                originalPixelPosition.y(),
+                logicalPixelPosition.y(),
                 ImageChannel::Gray));
         m_yProfilePlotPtr->setCurveSamples(
             QStringLiteral("gray"),
             createProfileSamples(
                 ProfileAxis::Y,
-                originalPixelPosition.x(),
+                logicalPixelPosition.x(),
                 ImageChannel::Gray));
         m_xProfilePlotPtr->clearCurve(QStringLiteral("red"));
         m_xProfilePlotPtr->clearCurve(QStringLiteral("green"));
@@ -526,37 +529,37 @@ void ImageViewerWindow::updateIntensityProfiles(
             QStringLiteral("red"),
             createProfileSamples(
                 ProfileAxis::X,
-                originalPixelPosition.y(),
+                logicalPixelPosition.y(),
                 ImageChannel::Red));
         m_xProfilePlotPtr->setCurveSamples(
             QStringLiteral("green"),
             createProfileSamples(
                 ProfileAxis::X,
-                originalPixelPosition.y(),
+                logicalPixelPosition.y(),
                 ImageChannel::Green));
         m_xProfilePlotPtr->setCurveSamples(
             QStringLiteral("blue"),
             createProfileSamples(
                 ProfileAxis::X,
-                originalPixelPosition.y(),
+                logicalPixelPosition.y(),
                 ImageChannel::Blue));
         m_yProfilePlotPtr->setCurveSamples(
             QStringLiteral("red"),
             createProfileSamples(
                 ProfileAxis::Y,
-                originalPixelPosition.x(),
+                logicalPixelPosition.x(),
                 ImageChannel::Red));
         m_yProfilePlotPtr->setCurveSamples(
             QStringLiteral("green"),
             createProfileSamples(
                 ProfileAxis::Y,
-                originalPixelPosition.x(),
+                logicalPixelPosition.x(),
                 ImageChannel::Green));
         m_yProfilePlotPtr->setCurveSamples(
             QStringLiteral("blue"),
             createProfileSamples(
                 ProfileAxis::Y,
-                originalPixelPosition.x(),
+                logicalPixelPosition.x(),
                 ImageChannel::Blue));
     }
 
@@ -565,12 +568,12 @@ void ImageViewerWindow::updateIntensityProfiles(
         : EIGHT_BIT_INTENSITY_MAXIMUM;
     m_xProfilePlotPtr->setAxisRanges(
         0.0,
-        qMax(1, m_originalImage.width() - 1),
+        qMax(1, m_logicalImage.width() - 1),
         0.0,
         intensityMaximum);
     m_yProfilePlotPtr->setAxisRanges(
         0.0,
-        qMax(1, m_originalImage.height() - 1),
+        qMax(1, m_logicalImage.height() - 1),
         0.0,
         intensityMaximum);
 }
@@ -598,21 +601,21 @@ void ImageViewerWindow::clearIntensityProfiles()
     }
 }
 
-// 生成完整原图行或列的像素索引与通道强度样本。
+// 生成完整逻辑图像行或列的像素索引与通道强度样本。
 QVector<QPointF> ImageViewerWindow::createProfileSamples(
     ProfileAxis profileAxis,
     int fixedPixelPosition,
     ImageChannel imageChannel) const
 {
     QVector<QPointF> samples;
-    if (m_originalImage.isNull())
+    if (m_logicalImage.isNull())
     {
         return samples;
     }
 
     const int sampleCount = profileAxis == ProfileAxis::X
-        ? m_originalImage.width()
-        : m_originalImage.height();
+        ? m_logicalImage.width()
+        : m_logicalImage.height();
     samples.reserve(sampleCount);
     for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
     {
@@ -629,7 +632,7 @@ QVector<QPointF> ImageViewerWindow::createProfileSamples(
     return samples;
 }
 
-// 按原图实际像素格式读取八位或十六位通道强度。
+// 按逻辑图像实际像素格式读取八位或十六位通道强度。
 double ImageViewerWindow::pixelIntensityAt(
     int pixelX,
     int pixelY,
@@ -637,20 +640,20 @@ double ImageViewerWindow::pixelIntensityAt(
 {
     if (imageChannel == ImageChannel::Gray)
     {
-        if (m_originalImage.format() == QImage::Format_Grayscale16)
+        if (m_logicalImage.format() == QImage::Format_Grayscale16)
         {
             const quint16* scanLinePtr = reinterpret_cast<const quint16*>(
-                m_originalImage.constScanLine(pixelY));
+                m_logicalImage.constScanLine(pixelY));
             return scanLinePtr[pixelX];
         }
-        if (m_originalImage.format() == QImage::Format_Alpha8)
+        if (m_logicalImage.format() == QImage::Format_Alpha8)
         {
-            return m_originalImage.constScanLine(pixelY)[pixelX];
+            return m_logicalImage.constScanLine(pixelY)[pixelX];
         }
-        return qGray(m_originalImage.pixel(pixelX, pixelY));
+        return qGray(m_logicalImage.pixel(pixelX, pixelY));
     }
 
-    const QColor pixelColor = m_originalImage.pixelColor(pixelX, pixelY);
+    const QColor pixelColor = m_logicalImage.pixelColor(pixelX, pixelY);
     if (isOriginalImageSixteenBit())
     {
         const QRgba64 rgba64 = pixelColor.rgba64();

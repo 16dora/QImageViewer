@@ -45,8 +45,8 @@ ImgGraphicsView::ImgGraphicsView(QWidget* parent)
 // 替换当前图片并重置由场景管理的全部覆盖图形。
 void ImgGraphicsView::setImage(
     const QPixmap& pixmap,
-    const QTransform& currentToOriginalTransform,
-    const QSize& originalImageSize)
+    const QTransform& currentToSourceTransform,
+    const QSize& sourceImageSize)
 {
     m_scenePtr->clear();
     m_pixmapItemPtr = m_scenePtr->addPixmap(pixmap);
@@ -58,15 +58,15 @@ void ImgGraphicsView::setImage(
     m_pickVerticalLinePtr = nullptr;
     m_selectedDrawingItemPtr = nullptr;
     m_drawingItems.clear();
-    m_currentToOriginalTransform = currentToOriginalTransform;
+    m_currentToSourceTransform = currentToSourceTransform;
     bool isInvertible = false;
-    m_originalToCurrentTransform =
-        m_currentToOriginalTransform.inverted(&isInvertible);
+    m_sourceToCurrentTransform =
+        m_currentToSourceTransform.inverted(&isInvertible);
     if (!isInvertible)
     {
-        m_originalToCurrentTransform = QTransform();
+        m_sourceToCurrentTransform = QTransform();
     }
-    m_originalImageSize = originalImageSize;
+    m_sourceImageSize = sourceImageSize;
     m_isDrawing = false;
     m_hasExceededDragThreshold = false;
     m_isPanning = false;
@@ -545,46 +545,46 @@ void ImgGraphicsView::deleteCurrentToolSelection()
     }
 }
 
-// 将当前画布点击位置映射为原图像素并更新唯一蓝色标记。
+// 将当前画布点击位置映射为逻辑源图像素并更新唯一蓝色标记。
 void ImgGraphicsView::pickPixelAt(const QPointF& scenePosition)
 {
-    if (m_pixmapItemPtr == nullptr || m_originalImageSize.isEmpty())
+    if (m_pixmapItemPtr == nullptr || m_sourceImageSize.isEmpty())
     {
         clearPickedPixel();
         return;
     }
 
-    const QPointF originalPosition =
-        m_currentToOriginalTransform.map(scenePosition);
-    const int originalPixelX = static_cast<int>(std::floor(originalPosition.x()));
-    const int originalPixelY = static_cast<int>(std::floor(originalPosition.y()));
-    if (originalPixelX < 0
-        || originalPixelY < 0
-        || originalPixelX >= m_originalImageSize.width()
-        || originalPixelY >= m_originalImageSize.height())
+    const QPointF sourcePosition =
+        m_currentToSourceTransform.map(scenePosition);
+    const int sourcePixelX = static_cast<int>(std::floor(sourcePosition.x()));
+    const int sourcePixelY = static_cast<int>(std::floor(sourcePosition.y()));
+    if (sourcePixelX < 0
+        || sourcePixelY < 0
+        || sourcePixelX >= m_sourceImageSize.width()
+        || sourcePixelY >= m_sourceImageSize.height())
     {
         clearPickedPixel();
         return;
     }
 
-    const QPointF originalPixelCenter(
-        originalPixelX + 0.5,
-        originalPixelY + 0.5);
+    const QPointF sourcePixelCenter(
+        sourcePixelX + 0.5,
+        sourcePixelY + 0.5);
     m_pickSceneCenter =
-        m_originalToCurrentTransform.map(originalPixelCenter);
+        m_sourceToCurrentTransform.map(sourcePixelCenter);
 
-    const QLineF originalHorizontalLine(
-        QPointF(0.0, originalPixelY + 0.5),
-        QPointF(m_originalImageSize.width(), originalPixelY + 0.5));
-    const QLineF originalVerticalLine(
-        QPointF(originalPixelX + 0.5, 0.0),
-        QPointF(originalPixelX + 0.5, m_originalImageSize.height()));
+    const QLineF sourceHorizontalLine(
+        QPointF(0.0, sourcePixelY + 0.5),
+        QPointF(m_sourceImageSize.width(), sourcePixelY + 0.5));
+    const QLineF sourceVerticalLine(
+        QPointF(sourcePixelX + 0.5, 0.0),
+        QPointF(sourcePixelX + 0.5, m_sourceImageSize.height()));
     const QLineF currentHorizontalLine(
-        m_originalToCurrentTransform.map(originalHorizontalLine.p1()),
-        m_originalToCurrentTransform.map(originalHorizontalLine.p2()));
+        m_sourceToCurrentTransform.map(sourceHorizontalLine.p1()),
+        m_sourceToCurrentTransform.map(sourceHorizontalLine.p2()));
     const QLineF currentVerticalLine(
-        m_originalToCurrentTransform.map(originalVerticalLine.p1()),
-        m_originalToCurrentTransform.map(originalVerticalLine.p2()));
+        m_sourceToCurrentTransform.map(sourceVerticalLine.p1()),
+        m_sourceToCurrentTransform.map(sourceVerticalLine.p2()));
 
     if (m_pickHorizontalLinePtr == nullptr)
     {
@@ -618,7 +618,7 @@ void ImgGraphicsView::pickPixelAt(const QPointF& scenePosition)
         m_pickItemPtr->setZValue(3.0);
     }
     updateOverlayAppearance();
-    emit pixelPicked(QPoint(originalPixelX, originalPixelY));
+    emit pixelPicked(QPoint(sourcePixelX, sourcePixelY));
 }
 
 // 删除唯一Pick标记并通知窗口恢复无效坐标文本。
