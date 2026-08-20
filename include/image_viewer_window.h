@@ -39,6 +39,12 @@ private slots:
     // 按下旋转按钮后将原图旋转到当前选择的绝对角度。
     void on_btn_rotateImage_clicked();
 
+    // 根据按钮状态启用或取消绕竖直中轴的左右翻转。
+    void on_btn_opticsVerticalFlip_clicked(bool isChecked);
+
+    // 根据按钮状态启用或取消绕水平中轴的上下翻转。
+    void on_btn_opticsHorizontalFlip_clicked(bool isChecked);
+
     // 接收ROI场景区域并更新右侧预览。
     void onRoiSelected(const QRectF& roiRect);
 
@@ -101,13 +107,28 @@ private:
     // 强度剖面不显示独立采样点。
     static constexpr int PROFILE_CURVE_POINT_SIZE = 0;
 
-    // 输入：目标顺时针旋转角度、有效内容多边形和逆变换输出指针。
-    // 输出：使用黑色背景承载的旋转图像。
-    // 作用：始终从原图数据生成指定绝对角度的当前图像及Pick坐标变换。
-    QImage createRotatedImage(
+    // 输入：目标顺时针旋转角度、两个翻转状态和变换结果输出指针。
+    // 输出：使用黑色背景承载并完成指定翻转的当前图像。
+    // 作用：始终从原图生成旋转与翻转组合结果及Pick坐标变换。
+    QImage createTransformedImage(
         double rotationAngleDegree,
+        bool isVerticalFlipEnabled,
+        bool isHorizontalFlipEnabled,
         QPolygonF* validImagePolygonPtr,
         QTransform* currentToOriginalTransformPtr) const;
+
+    // 输入：目标顺时针旋转角度和两个翻转状态。
+    // 输出：成功生成并显示组合变换图像时返回true。
+    // 作用：集中提交图像、Pick变换、按钮状态和清理后的预览状态。
+    bool applyImageTransform(
+        double rotationAngleDegree,
+        bool isVerticalFlipEnabled,
+        bool isHorizontalFlipEnabled);
+
+    // 输入：无。
+    // 输出：无。
+    // 作用：根据已提交的翻转状态同步两个切换按钮的选中状态和文本。
+    void updateFlipButtonUiState();
 
     // 输入：无。
     // 输出：无。
@@ -171,11 +192,13 @@ private:
     std::unique_ptr<MultiCurvePlot> m_xProfilePlotPtr; // 原图X行强度Plot控制器。
     std::unique_ptr<MultiCurvePlot> m_yProfilePlotPtr; // 原图Y列强度Plot控制器。
     QImage m_originalImage;                        // 当前加载且保持格式的原始图像数据。
-    QImage m_currentImage;                         // 当前绝对角度对应的旋转图像数据。
+    QImage m_currentImage;                         // 当前旋转与翻转组合后的图像数据。
     QImage m_currentRoiImage;                      // 不包含任何辅助标记的当前ROI数据。
-    QPolygonF m_validImagePolygon;                 // 旋转后真实原图内容的闭合轮廓。
-    QTransform m_currentToOriginalTransform;       // 当前旋转画布到原图的Pick变换。
+    QPolygonF m_validImagePolygon;                 // 当前变换后真实原图内容的闭合轮廓。
+    QTransform m_currentToOriginalTransform;       // 当前变换画布到原图的Pick变换。
     double m_currentRotationAngleDegree;           // 当前顺时针绝对旋转角度。
+    bool m_isVerticalFlipEnabled;                  // 是否绕竖直中轴左右翻转。
+    bool m_isHorizontalFlipEnabled;                // 是否绕水平中轴上下翻转。
 };
 
 } // namespace image_viewer

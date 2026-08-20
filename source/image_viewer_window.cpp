@@ -21,6 +21,8 @@ ImageViewerWindow::ImageViewerWindow(QWidget* parent)
     : QMainWindow(parent)
     , m_uiPtr(std::make_unique<Ui::ImageViewerWindow>())
     , m_currentRotationAngleDegree(0.0)
+    , m_isVerticalFlipEnabled(false)
+    , m_isHorizontalFlipEnabled(false)
 {
     m_uiPtr->setupUi(this);
     initializeIntensityPlots();
@@ -60,6 +62,7 @@ ImageViewerWindow::ImageViewerWindow(QWidget* parent)
             this,
             &ImageViewerWindow::onPixelPickCleared);
     m_uiPtr->gview_mainImage->setToolMode(ImgGraphicsView::ToolMode::Roi);
+    updateFlipButtonUiState();
 }
 
 // 使用默认析构释放智能指针管理的UI对象。
@@ -160,19 +163,11 @@ void ImageViewerWindow::on_btn_loadImage_clicked()
     }
 
     m_originalImage = loadedImage;
-    m_currentImage = m_originalImage;
-    m_validImagePolygon = QPolygonF(QRectF(m_originalImage.rect()));
-    m_currentToOriginalTransform = QTransform();
-    m_currentRotationAngleDegree = 0.0;
     m_uiPtr->cbox_rotationAngleDegree->setCurrentIndex(0);
-    m_uiPtr->gview_mainImage->setImage(
-        QPixmap::fromImage(m_currentImage),
-        m_currentToOriginalTransform,
-        m_originalImage.size());
-    resetRoiPreview();
+    applyImageTransform(0.0, false, false);
 }
 
-// 根据当前选择的绝对角度从原图生成旋转图片并重置视图状态。
+// 根据当前绝对角度和已启用翻转状态重新生成图片。
 void ImageViewerWindow::on_btn_rotateImage_clicked()
 {
     if (m_originalImage.isNull())
@@ -189,31 +184,41 @@ void ImageViewerWindow::on_btn_rotateImage_clicked()
         return;
     }
 
-    QPolygonF validImagePolygon;
-    QTransform currentToOriginalTransform;
-    const QImage rotatedImage = createRotatedImage(
+    applyImageTransform(
         selectedRotationAngleDegree,
-        &validImagePolygon,
-        &currentToOriginalTransform);
-    if (rotatedImage.isNull())
-    {
-        return;
-    }
-
-    m_currentImage = rotatedImage;
-    m_validImagePolygon = validImagePolygon;
-    m_currentToOriginalTransform = currentToOriginalTransform;
-    m_currentRotationAngleDegree = selectedRotationAngleDegree;
-    m_uiPtr->gview_mainImage->setImage(
-        QPixmap::fromImage(m_currentImage),
-        m_currentToOriginalTransform,
-        m_originalImage.size());
-    resetRoiPreview();
+        m_isVerticalFlipEnabled,
+        m_isHorizontalFlipEnabled);
 }
 
-// 始终从原图生成指定绝对角度的黑色背景旋转图片。
-QImage ImageViewerWindow::createRotatedImage(
+// 根据切换状态重新生成绕竖直中轴左右翻转的当前图像。
+void ImageViewerWindow::on_btn_opticsVerticalFlip_clicked(bool isChecked)
+{
+    if (!applyImageTransform(
+            m_currentRotationAngleDegree,
+            isChecked,
+            m_isHorizontalFlipEnabled))
+    {
+        updateFlipButtonUiState();
+    }
+}
+
+// 根据切换状态重新生成绕水平中轴上下翻转的当前图像。
+void ImageViewerWindow::on_btn_opticsHorizontalFlip_clicked(bool isChecked)
+{
+    if (!applyImageTransform(
+            m_currentRotationAngleDegree,
+            m_isVerticalFlipEnabled,
+            isChecked))
+    {
+        updateFlipButtonUiState();
+    }
+}
+
+// 始终从原图生成绝对旋转与双向翻转组合后的图像。
+QImage ImageViewerWindow::createTransformedImage(
     double rotationAngleDegree,
+    bool isVerticalFlipEnabled,
+    bool isHorizontalFlipEnabled,
     QPolygonF* validImagePolygonPtr,
     QTransform* currentToOriginalTransformPtr) const
 {
@@ -224,39 +229,125 @@ QImage ImageViewerWindow::createRotatedImage(
         return QImage();
     }
 
+    QImage rotatedImage;
+    QTransform originalToRotatedTransform;
     if (qAbs(rotationAngleDegree) < ROTATION_ANGLE_EPSILON)
     {
-        *validImagePolygonPtr = QPolygonF(QRectF(m_originalImage.rect()));
-        *currentToOriginalTransformPtr = QTransform();
-        return m_originalImage;
+        rotatedImage = m_originalImage;
+    }
+    else
+    {
+        QTransform rotationTransform;
+        rotationTransform.rotate(rotationAngleDegree);
+        originalToRotatedTransform = QImage::trueMatrix(
+            rotationTransform,
+            m_originalImage.width(),
+            m_originalImage.height());
+
+        const QImage transformedImage = m_originalImage.transformed(
+            rotationTransform, Qt::SmoothTransformation);
+        const bool isSixteenBitImage = isOriginalImageSixteenBit();
+        rotatedImage = QImage(
+            transformedImage.size(),
+            isSixteenBitImage ? QImage::Format_RGBA64 : QImage::Format_ARGB32);
+        rotatedImage.fill(Qt::black);
+        QPainter painter(&rotatedImage);
+        painter.drawImage(0, 0, transformedImage);
     }
 
-    QTransform rotationTransform;
-    rotationTransform.rotate(rotationAngleDegree);
-    const QTransform adjustedRotationTransform = QImage::trueMatrix(
-        rotationTransform,
-        m_originalImage.width(),
-        m_originalImage.height());
-    *validImagePolygonPtr = adjustedRotationTransform.map(
+    const qreal horizontalScale = isVerticalFlipEnabled ? -1.0 : 1.0;
+    const qreal verticalScale = isHorizontalFlipEnabled ? -1.0 : 1.0;
+    const qreal horizontalOffset = isVerticalFlipEnabled
+        ? rotatedImage.width()
+        : 0.0;
+    const qreal verticalOffset = isHorizontalFlipEnabled
+        ? rotatedImage.height()
+        : 0.0;
+    const QTransform rotatedToCurrentTransform(
+        horizontalScale,
+        0.0,
+        0.0,
+        verticalScale,
+        horizontalOffset,
+        verticalOffset);
+    const QTransform originalToCurrentTransform =
+        originalToRotatedTransform * rotatedToCurrentTransform;
+    *validImagePolygonPtr = originalToCurrentTransform.map(
         QPolygonF(QRectF(m_originalImage.rect())));
+
     bool isInvertible = false;
     *currentToOriginalTransformPtr =
-        adjustedRotationTransform.inverted(&isInvertible);
+        originalToCurrentTransform.inverted(&isInvertible);
     if (!isInvertible)
     {
         return QImage();
     }
 
-    const QImage transformedImage = m_originalImage.transformed(
-        rotationTransform, Qt::SmoothTransformation);
-    const bool isSixteenBitImage = isOriginalImageSixteenBit();
-    QImage rotatedImage(
-        transformedImage.size(),
-        isSixteenBitImage ? QImage::Format_RGBA64 : QImage::Format_ARGB32);
-    rotatedImage.fill(Qt::black);
-    QPainter painter(&rotatedImage);
-    painter.drawImage(0, 0, transformedImage);
-    return rotatedImage;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    Qt::Orientations flipOrientations;
+    if (isVerticalFlipEnabled)
+    {
+        flipOrientations |= Qt::Horizontal;
+    }
+    if (isHorizontalFlipEnabled)
+    {
+        flipOrientations |= Qt::Vertical;
+    }
+    return rotatedImage.flipped(flipOrientations);
+#else
+    return rotatedImage.mirrored(
+        isVerticalFlipEnabled,
+        isHorizontalFlipEnabled);
+#endif
+}
+
+// 生成并提交当前绝对旋转与双向翻转状态对应的显示图像。
+bool ImageViewerWindow::applyImageTransform(
+    double rotationAngleDegree,
+    bool isVerticalFlipEnabled,
+    bool isHorizontalFlipEnabled)
+{
+    QPolygonF validImagePolygon;
+    QTransform currentToOriginalTransform;
+    const QImage transformedImage = createTransformedImage(
+        rotationAngleDegree,
+        isVerticalFlipEnabled,
+        isHorizontalFlipEnabled,
+        &validImagePolygon,
+        &currentToOriginalTransform);
+    if (transformedImage.isNull())
+    {
+        return false;
+    }
+
+    m_currentImage = transformedImage;
+    m_validImagePolygon = validImagePolygon;
+    m_currentToOriginalTransform = currentToOriginalTransform;
+    m_currentRotationAngleDegree = rotationAngleDegree;
+    m_isVerticalFlipEnabled = isVerticalFlipEnabled;
+    m_isHorizontalFlipEnabled = isHorizontalFlipEnabled;
+    updateFlipButtonUiState();
+    m_uiPtr->gview_mainImage->setImage(
+        QPixmap::fromImage(m_currentImage),
+        m_currentToOriginalTransform,
+        m_originalImage.size());
+    resetRoiPreview();
+    return true;
+}
+
+// 同步双向翻转按钮的勾选状态和英文动作文本。
+void ImageViewerWindow::updateFlipButtonUiState()
+{
+    m_uiPtr->btn_opticsVerticalFlip->setChecked(m_isVerticalFlipEnabled);
+    m_uiPtr->btn_opticsVerticalFlip->setText(
+        m_isVerticalFlipEnabled
+            ? tr("Disable Vertical Flip")
+            : tr("Vertical Flip"));
+    m_uiPtr->btn_opticsHorizontalFlip->setChecked(m_isHorizontalFlipEnabled);
+    m_uiPtr->btn_opticsHorizontalFlip->setText(
+        m_isHorizontalFlipEnabled
+            ? tr("Disable Horizontal Flip")
+            : tr("Horizontal Flip"));
 }
 
 // 清除底层ROI数据并恢复右侧预览的英文初始文本。

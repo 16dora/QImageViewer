@@ -103,7 +103,7 @@
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
-             <property name="toolTip">
+              <property name="toolTip">
                <string>Draw rectangle</string>
               </property>
               <property name="text">
@@ -125,7 +125,7 @@
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
-             <property name="toolTip">
+              <property name="toolTip">
                <string>Pick pixel</string>
               </property>
               <property name="text">
@@ -258,37 +258,27 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>2</number>
+           <number>0</number>
           </property>
-          <widget class="QWidget" name="ImgProcess" native="true">
+          <widget class="QWidget" name="ImgProcess">
            <attribute name="title">
             <string>ImgProcess</string>
            </attribute>
            <layout class="QGridLayout" name="layout_imageProcessing">
+            <item row="0" column="1">
+             <widget class="QPushButton" name="btn_opticsHorizontalFlip">
+              <property name="text">
+               <string>Horizontal Flip</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
             <item row="0" column="0">
              <widget class="QPushButton" name="btn_opticsVerticalFlip">
               <property name="text">
                <string>Vertical Flip</string>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QPushButton" name="btn_opticsMirrorFlip">
-              <property name="text">
-               <string>Mirror Flip</string>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QPushButton" name="btn_RealTimeCentroid">
-              <property name="text">
-               <string>Realtime Centroid</string>
               </property>
               <property name="checkable">
                <bool>true</bool>
