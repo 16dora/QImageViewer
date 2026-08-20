@@ -194,6 +194,20 @@ void ImageViewerWindow::on_btn_rotateImage_clicked()
         m_isHorizontalFlipEnabled);
 }
 
+// 恢复原始加载图像并清除全部ROI、覆盖图形和Pick状态。
+void ImageViewerWindow::on_tbtn_resetView_clicked()
+{
+    if (m_originalImage.isNull())
+    {
+        return;
+    }
+
+    if (applyImageTransform(0.0, false, false))
+    {
+        m_uiPtr->cbox_rotationAngleDegree->setCurrentIndex(0);
+    }
+}
+
 // 将当前变换图像按时间戳命名并保存到应用程序Save目录。
 void ImageViewerWindow::on_btn_saveImage_clicked()
 {

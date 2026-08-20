@@ -160,7 +160,7 @@
           <item>
            <widget class="QToolButton" name="tbtn_resetView">
             <property name="toolTip">
-             <string>Zoom out</string>
+             <string>Reset image</string>
             </property>
             <property name="text">
              <string>Reset</string>
