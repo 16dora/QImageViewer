@@ -31,6 +31,7 @@ namespace image_viewer {
 ImageViewerWindow::ImageViewerWindow(QWidget* parent)
     : QMainWindow(parent)
     , m_uiPtr(std::make_unique<Ui::ImageViewerWindow>())
+    , m_pickedOriginalPixelPosition(-1, -1)
     , m_currentRotationAngleDegree(0.0)
     , m_currentMaskRotationAngleDegree(0.0)
     , m_maskOpacityPercent(MASK_DEFAULT_OPACITY_PERCENT)
@@ -170,7 +171,7 @@ void ImageViewerWindow::addIntensityProfileCurves(
     profilePlotPtr->addCurve(QStringLiteral("blue"), blueCurveOptions);
 }
 
-// 选择并加载本地图片，然后更新主视图与ROI初始状态。
+// 选择并加载本地图片，同时保留主图变换和全部已提交交互内容。
 void ImageViewerWindow::on_btn_loadImage_clicked()
 {
     const QString fileName = QFileDialog::getOpenFileName(
@@ -198,10 +199,12 @@ void ImageViewerWindow::on_btn_loadImage_clicked()
         return;
     }
 
-    clearMask();
     m_originalImage = loadedImage;
-    m_uiPtr->cbox_rotationAngleDegree->setCurrentIndex(0);
-    applyImageTransform(0.0, false, false);
+    applyImageTransform(
+        m_currentRotationAngleDegree,
+        m_isVerticalFlipEnabled,
+        m_isHorizontalFlipEnabled,
+        ImageUpdateMode::PreserveContent);
 }
 
 // 根据当前绝对角度和已启用翻转状态重新生成图片。
@@ -224,10 +227,11 @@ void ImageViewerWindow::on_btn_rotateImage_clicked()
     applyImageTransform(
         selectedRotationAngleDegree,
         m_isVerticalFlipEnabled,
-        m_isHorizontalFlipEnabled);
+        m_isHorizontalFlipEnabled,
+        ImageUpdateMode::PreserveContent);
 }
 
-// 恢复原始加载图像并清除全部ROI、覆盖图形和Pick状态。
+// 恢复原始加载图像并清除绘图、ROI和Pick，保留Mask与工具模式。
 void ImageViewerWindow::on_tbtn_resetView_clicked()
 {
     if (m_originalImage.isNull())
@@ -235,8 +239,11 @@ void ImageViewerWindow::on_tbtn_resetView_clicked()
         return;
     }
 
-    clearMask();
-    if (applyImageTransform(0.0, false, false))
+    if (applyImageTransform(
+            0.0,
+            false,
+            false,
+            ImageUpdateMode::ResetContent))
     {
         m_uiPtr->cbox_rotationAngleDegree->setCurrentIndex(0);
     }
@@ -370,13 +377,12 @@ void ImageViewerWindow::on_btn_loadMaskFile_clicked()
         return;
     }
 
-    clearMask();
     m_originalMaskImage = binaryMaskImage;
     if (!applyMaskTransform(
-            0.0,
-            false,
-            false,
-            MASK_DEFAULT_OPACITY_PERCENT))
+            m_currentMaskRotationAngleDegree,
+            m_isMaskVerticalFlipEnabled,
+            m_isMaskHorizontalFlipEnabled,
+            m_maskOpacityPercent))
     {
         clearMask();
         QMessageBox::critical(
@@ -390,6 +396,27 @@ void ImageViewerWindow::on_btn_loadMaskFile_clicked()
         tr("[ImageViewer] Loaded Mask image '%1'.")
             .arg(QDir::toNativeSeparators(fileName)),
         STATUS_MESSAGE_TIMEOUT_MS);
+}
+
+// 清除Mask图像、覆盖层和全部Mask参数。
+void ImageViewerWindow::on_btn_clearMask_clicked()
+{
+    clearMask();
+}
+
+// 保留Mask图像并恢复默认Opacity、旋转和翻转状态。
+void ImageViewerWindow::on_btn_resetMask_clicked()
+{
+    if (m_originalMaskImage.isNull())
+    {
+        return;
+    }
+
+    applyMaskTransform(
+        0.0,
+        false,
+        false,
+        MASK_DEFAULT_OPACITY_PERCENT);
 }
 
 // 应用Mask黑色区域的不透明度百分比。
@@ -453,7 +480,8 @@ void ImageViewerWindow::on_btn_verticalFlip_clicked(bool isChecked)
     if (!applyImageTransform(
             m_currentRotationAngleDegree,
             isChecked,
-            m_isHorizontalFlipEnabled))
+            m_isHorizontalFlipEnabled,
+            ImageUpdateMode::PreserveContent))
     {
         updateFlipButtonUiState();
     }
@@ -465,7 +493,8 @@ void ImageViewerWindow::on_btn_horizontalFlip_clicked(bool isChecked)
     if (!applyImageTransform(
             m_currentRotationAngleDegree,
             m_isVerticalFlipEnabled,
-            isChecked))
+            isChecked,
+            ImageUpdateMode::PreserveContent))
     {
         updateFlipButtonUiState();
     }
@@ -557,7 +586,8 @@ QImage ImageViewerWindow::createRotatedImage(
 bool ImageViewerWindow::applyImageTransform(
     double rotationAngleDegree,
     bool isVerticalFlipEnabled,
-    bool isHorizontalFlipEnabled)
+    bool isHorizontalFlipEnabled,
+    ImageUpdateMode imageUpdateMode)
 {
     const QImage logicalImage = createFlippedImage(
         isVerticalFlipEnabled,
@@ -579,6 +609,27 @@ bool ImageViewerWindow::applyImageTransform(
         return false;
     }
 
+    QPoint retainedLogicalPixelPosition(-1, -1);
+    if (imageUpdateMode == ImageUpdateMode::PreserveContent
+        && m_originalImage.rect().contains(m_pickedOriginalPixelPosition))
+    {
+        retainedLogicalPixelPosition = m_pickedOriginalPixelPosition;
+        if (isVerticalFlipEnabled)
+        {
+            retainedLogicalPixelPosition.setX(
+                m_originalImage.width()
+                - 1
+                - retainedLogicalPixelPosition.x());
+        }
+        if (isHorizontalFlipEnabled)
+        {
+            retainedLogicalPixelPosition.setY(
+                m_originalImage.height()
+                - 1
+                - retainedLogicalPixelPosition.y());
+        }
+    }
+
     m_logicalImage = logicalImage;
     m_currentImage = transformedImage;
     m_validImagePolygon = validImagePolygon;
@@ -587,11 +638,32 @@ bool ImageViewerWindow::applyImageTransform(
     m_isVerticalFlipEnabled = isVerticalFlipEnabled;
     m_isHorizontalFlipEnabled = isHorizontalFlipEnabled;
     updateFlipButtonUiState();
-    m_uiPtr->gview_mainImage->setImage(
-        QPixmap::fromImage(m_currentImage),
-        m_currentToLogicalTransform,
-        m_logicalImage.size());
-    resetRoiPreview();
+    if (imageUpdateMode == ImageUpdateMode::ResetContent)
+    {
+        m_uiPtr->gview_mainImage->resetImage(
+            QPixmap::fromImage(m_currentImage),
+            m_currentToLogicalTransform,
+            m_logicalImage.size());
+        resetRoiPreview();
+    }
+    else
+    {
+        m_uiPtr->gview_mainImage->setImage(
+            QPixmap::fromImage(m_currentImage),
+            m_currentToLogicalTransform,
+            m_logicalImage.size(),
+            retainedLogicalPixelPosition);
+        const QRectF retainedRoiRect =
+            m_uiPtr->gview_mainImage->currentRoiRect();
+        if (retainedRoiRect.isEmpty())
+        {
+            resetRoiPreview();
+        }
+        else
+        {
+            onRoiSelected(retainedRoiRect);
+        }
+    }
     if (!m_originalMaskImage.isNull())
     {
         applyMaskTransform(
@@ -785,6 +857,8 @@ void ImageViewerWindow::updateMaskControlUiState()
     m_uiPtr->btn_applyMaskRotation->setEnabled(hasMaskImage);
     m_uiPtr->btn_maskVerticalFlip->setEnabled(hasMaskImage);
     m_uiPtr->btn_maskHorizontalFlip->setEnabled(hasMaskImage);
+    m_uiPtr->btn_clearMask->setEnabled(hasMaskImage);
+    m_uiPtr->btn_resetMask->setEnabled(hasMaskImage);
 
     m_uiPtr->sbox_maskOpacityPercent->setValue(m_maskOpacityPercent);
     const int maskRotationIndex = qBound(
@@ -1029,6 +1103,21 @@ void ImageViewerWindow::showParameterGenerationMenu(
 // 显示Pick到的逻辑图像零基整数像素坐标。
 void ImageViewerWindow::onPixelPicked(const QPoint& logicalPixelPosition)
 {
+    m_pickedOriginalPixelPosition = logicalPixelPosition;
+    if (m_isVerticalFlipEnabled)
+    {
+        m_pickedOriginalPixelPosition.setX(
+            m_originalImage.width()
+            - 1
+            - m_pickedOriginalPixelPosition.x());
+    }
+    if (m_isHorizontalFlipEnabled)
+    {
+        m_pickedOriginalPixelPosition.setY(
+            m_originalImage.height()
+            - 1
+            - m_pickedOriginalPixelPosition.y());
+    }
     m_uiPtr->label_pickedPixel->setText(
         tr("X: %1,Y:%2")
             .arg(logicalPixelPosition.x())
@@ -1039,6 +1128,7 @@ void ImageViewerWindow::onPixelPicked(const QPoint& logicalPixelPosition)
 // 将Pick标签和两个强度Plot恢复为无有效点状态。
 void ImageViewerWindow::onPixelPickCleared()
 {
+    m_pickedOriginalPixelPosition = QPoint(-1, -1);
     m_uiPtr->label_pickedPixel->setText(tr("X: --,Y:--"));
     clearIntensityProfiles();
 }

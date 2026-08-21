@@ -220,7 +220,7 @@
        </layout>
       </item>
       <item>
-       <layout class="QVBoxLayout" name="layout_roiPanel" stretch="0,0,0">
+       <layout class="QVBoxLayout" name="layout_roiPanel" stretch="0,0">
         <property name="topMargin">
          <number>0</number>
         </property>
@@ -258,13 +258,59 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>2</number>
           </property>
           <widget class="QWidget" name="widget_imageProcessingPage">
            <attribute name="title">
             <string>ImgProcess</string>
            </attribute>
            <layout class="QGridLayout" name="layout_imageProcessing">
+            <item row="0" column="1">
+             <widget class="QPushButton" name="btn_verticalFlip">
+              <property name="minimumSize">
+               <size>
+                <width>85</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Vertical Flip</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_rotationAngleTitle">
+              <property name="text">
+               <string>RotateAngle</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QPushButton" name="btn_rotateImage">
+              <property name="text">
+               <string>Rotate</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QPushButton" name="btn_horizontalFlip">
+              <property name="minimumSize">
+               <size>
+                <width>85</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Horizontal Flip</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
             <item row="1" column="1">
              <widget class="QComboBox" name="cbox_rotationAngleDegree">
               <item>
@@ -314,58 +360,25 @@
               </item>
              </widget>
             </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="label_rotationAngleTitle">
-              <property name="text">
-               <string>RotateAngle</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="2">
-             <widget class="QPushButton" name="btn_rotateImage">
-              <property name="text">
-               <string>Rotate</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="2">
-             <widget class="QPushButton" name="btn_horizontalFlip">
-              <property name="minimumSize">
-               <size>
-                <width>85</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Horizontal Flip</string>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QPushButton" name="btn_verticalFlip">
-              <property name="minimumSize">
-               <size>
-                <width>85</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Vertical Flip</string>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
             <item row="0" column="0">
              <widget class="QLabel" name="label_flipTitle">
               <property name="text">
                <string>Flip</string>
               </property>
              </widget>
+            </item>
+            <item row="2" column="0" colspan="3">
+             <spacer name="verticalSpacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
             </item>
            </layout>
           </widget>
@@ -374,13 +387,6 @@
             <string>ImgSave</string>
            </attribute>
            <layout class="QGridLayout" name="layout_imageSaving">
-            <item row="1" column="0">
-             <widget class="QCheckBox" name="check_keepOverlay">
-              <property name="text">
-               <string>Keep Overlay</string>
-              </property>
-             </widget>
-            </item>
             <item row="3" column="2">
              <widget class="QPushButton" name="btn_saveImageTo">
               <property name="text">
@@ -421,6 +427,26 @@
               </property>
              </widget>
             </item>
+            <item row="1" column="0">
+             <widget class="QCheckBox" name="check_keepOverlay">
+              <property name="text">
+               <string>Keep Overlay</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0" colspan="3">
+             <spacer name="verticalSpacer_2">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
            </layout>
           </widget>
           <widget class="QWidget" name="widget_maskInputPage">
@@ -428,29 +454,10 @@
             <string>Mask Input</string>
            </attribute>
            <layout class="QGridLayout" name="layout_maskControls">
-            <item row="1" column="2">
-             <widget class="QPushButton" name="btn_applyMaskOpacity">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
+            <item row="0" column="0">
+             <widget class="QPushButton" name="btn_loadMaskFile">
               <property name="text">
-               <string>Apply Opacity</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QSpinBox" name="sbox_maskOpacityPercent">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="suffix">
-               <string>%</string>
-              </property>
-              <property name="maximum">
-               <number>100</number>
-              </property>
-              <property name="value">
-               <number>100</number>
+               <string>Load Mask</string>
               </property>
              </widget>
             </item>
@@ -506,6 +513,19 @@
               </item>
              </widget>
             </item>
+            <item row="3" column="2">
+             <widget class="QPushButton" name="btn_maskHorizontalFlip">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>Horizontal Flip</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
             <item row="2" column="2">
              <widget class="QPushButton" name="btn_applyMaskRotation">
               <property name="enabled">
@@ -516,31 +536,10 @@
               </property>
              </widget>
             </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="label_maskRotationTitle">
-              <property name="text">
-               <string>Mask Rotation:</string>
-              </property>
-             </widget>
-            </item>
             <item row="1" column="0">
              <widget class="QLabel" name="label_maskOpacityTitle">
               <property name="text">
                <string>Opacity:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="0">
-             <widget class="QPushButton" name="btn_loadMaskFile">
-              <property name="text">
-               <string>Load Mask</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="0">
-             <widget class="QLabel" name="label_maskFlipTitle">
-              <property name="text">
-               <string>Mask Flip:</string>
               </property>
              </widget>
             </item>
@@ -557,38 +556,82 @@
               </property>
              </widget>
             </item>
-            <item row="3" column="2">
-             <widget class="QPushButton" name="btn_maskHorizontalFlip">
+            <item row="1" column="2">
+             <widget class="QPushButton" name="btn_applyMaskOpacity">
               <property name="enabled">
                <bool>false</bool>
               </property>
               <property name="text">
-               <string>Horizontal Flip</string>
+               <string>Apply Opacity</string>
               </property>
-              <property name="checkable">
-               <bool>true</bool>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QSpinBox" name="sbox_maskOpacityPercent">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="suffix">
+               <string>%</string>
+              </property>
+              <property name="maximum">
+               <number>100</number>
+              </property>
+              <property name="value">
+               <number>100</number>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_maskFlipTitle">
+              <property name="text">
+               <string>Mask Flip:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_maskRotationTitle">
+              <property name="text">
+               <string>Mask Rotation:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QPushButton" name="btn_clearMask">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>Clear Mask</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0" colspan="3">
+             <spacer name="verticalSpacer_3">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item row="4" column="0">
+             <widget class="QPushButton" name="btn_resetMask">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>Reset Mask</string>
               </property>
              </widget>
             </item>
            </layout>
           </widget>
          </widget>
-        </item>
-        <item>
-         <spacer name="spacer_roiPanel">
-          <property name="orientation">
-           <enum>Qt::Orientation::Vertical</enum>
-          </property>
-          <property name="sizeType">
-           <enum>QSizePolicy::Policy::Preferred</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
         </item>
        </layout>
       </item>

@@ -49,6 +49,12 @@ private slots:
     // 选择并加载一张实际位深为1的BMP Mask图像。
     void on_btn_loadMaskFile_clicked();
 
+    // 清除Mask图像、覆盖层和全部Mask变换参数。
+    void on_btn_clearMask_clicked();
+
+    // 保留Mask图像并将全部Mask变换参数恢复默认值。
+    void on_btn_resetMask_clicked();
+
     // 应用当前Mask不透明度百分比。
     void on_btn_applyMaskOpacity_clicked();
 
@@ -111,6 +117,13 @@ private:
         Blue
     };
 
+    // 主图更新时对现有交互内容采用的处理方式。
+    enum class ImageUpdateMode
+    {
+        PreserveContent,
+        ResetContent
+    };
+
     // 图片加载失败时使用的错误码。
     static constexpr int IMAGE_LOAD_ERROR_CODE = 1001;
 
@@ -169,13 +182,14 @@ private:
         QPolygonF* validImagePolygonPtr,
         QTransform* currentToLogicalTransformPtr) const;
 
-    // 输入：目标顺时针旋转角度和两个翻转状态。
+    // 输入：目标顺时针旋转角度、两个翻转状态和交互内容处理方式。
     // 输出：成功生成并显示组合变换图像时返回true。
-    // 作用：集中提交图像、Pick变换、按钮状态和清理后的预览状态。
+    // 作用：集中提交图像、Pick变换、按钮状态和对应交互内容状态。
     bool applyImageTransform(
         double rotationAngleDegree,
         bool isVerticalFlipEnabled,
-        bool isHorizontalFlipEnabled);
+        bool isHorizontalFlipEnabled,
+        ImageUpdateMode imageUpdateMode);
 
     // 输入：已通过位深校验的单色Mask图像。
     // 输出：使用纯黑和纯白像素表示的标准Mask图像。
@@ -297,6 +311,7 @@ private:
     QImage m_originalMaskImage;                    // 标准纯黑白且不继承原图变换的Mask数据。
     QPolygonF m_validImagePolygon;                 // 旋转后逻辑图像内容的闭合轮廓。
     QTransform m_currentToLogicalTransform;        // 当前画布到逻辑图像的Pick变换。
+    QPoint m_pickedOriginalPixelPosition;          // Pick对应的未翻转原图零基像素坐标。
     double m_currentRotationAngleDegree;           // 当前顺时针绝对旋转角度。
     double m_currentMaskRotationAngleDegree;       // 当前Mask顺时针绝对旋转角度。
     int m_maskOpacityPercent;                      // 当前Mask黑色区域不透明度百分比。

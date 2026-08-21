@@ -44,12 +44,25 @@ public:
     // 创建图片交互视图并初始化场景。
     explicit ImgGraphicsView(QWidget* parent = nullptr);
 
-    // 输入：需要显示的图片、当前画布到逻辑源图的变换和源图尺寸。
+    // 输入：需要显示的图片、当前画布到逻辑源图的变换、源图尺寸和保留的Pick坐标。
     // 输出：无。
-    // 作用：替换当前图片、清除覆盖图形并自适应视图大小。
+    // 作用：替换当前图片并保留绘图、ROI、Pick和当前观察位置。
     void setImage(const QPixmap& pixmap,
                   const QTransform& currentToSourceTransform,
-                  const QSize& sourceImageSize);
+                  const QSize& sourceImageSize,
+                  const QPoint& retainedSourcePixelPosition);
+
+    // 输入：需要显示的图片、当前画布到逻辑源图的变换和源图尺寸。
+    // 输出：无。
+    // 作用：替换当前图片、清除全部交互覆盖内容并重新自适应视图。
+    void resetImage(const QPixmap& pixmap,
+                    const QTransform& currentToSourceTransform,
+                    const QSize& sourceImageSize);
+
+    // 输入：无。
+    // 输出：当前ROI在画布中的场景坐标区域。
+    // 作用：供主窗口在底图替换后刷新ROI像素预览。
+    QRectF currentRoiRect() const;
 
     // 输入：与当前场景图片尺寸一致的底图。
     // 输出：叠加已提交普通图形和Pick标记的原始像素尺寸图像。
@@ -205,6 +218,18 @@ private:
     // 作用：按原图比例将当前图片适配到视图。
     void fitImageInView();
 
+    // 输入：需要显示的图片、当前画布到逻辑源图的变换和源图尺寸。
+    // 输出：无。
+    // 作用：只更新底图、场景边界、覆盖裁剪区域和Pick坐标变换。
+    void updateImageItems(const QPixmap& pixmap,
+                          const QTransform& currentToSourceTransform,
+                          const QSize& sourceImageSize);
+
+    // 输入：无。
+    // 输出：无。
+    // 作用：清除ROI、普通绘图、Pick、Mask显示层和未完成预览。
+    void clearImageOverlays();
+
     // 输入：无。
     // 输出：无。
     // 作用：读取视图变换并发送实际倍率。
@@ -335,6 +360,7 @@ private:
 
     QGraphicsScene* m_scenePtr;             // 由QObject父子关系管理。
     QGraphicsPixmapItem* m_pixmapItemPtr;   // 由m_scenePtr管理。
+    QGraphicsRectItem* m_overlayRootItemPtr; // 裁剪全部覆盖图形的透明父图元。
     QGraphicsPixmapItem* m_maskItemPtr;     // 由m_scenePtr管理的独立Mask显示层。
     QGraphicsRectItem* m_roiItemPtr;        // 由m_scenePtr管理。
     QGraphicsItem* m_drawingPreviewItemPtr; // 由m_scenePtr管理的实时预览。

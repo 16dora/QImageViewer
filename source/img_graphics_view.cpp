@@ -20,6 +20,7 @@ ImgGraphicsView::ImgGraphicsView(QWidget* parent)
     : QGraphicsView(parent)
     , m_scenePtr(new QGraphicsScene(this))
     , m_pixmapItemPtr(nullptr)
+    , m_overlayRootItemPtr(nullptr)
     , m_maskItemPtr(nullptr)
     , m_roiItemPtr(nullptr)
     , m_drawingPreviewItemPtr(nullptr)
@@ -43,36 +44,87 @@ ImgGraphicsView::ImgGraphicsView(QWidget* parent)
     setFocusPolicy(Qt::StrongFocus);
 }
 
-// 替换当前图片并重置由场景管理的全部覆盖图形。
+// 替换底图并保留已提交覆盖内容与当前观察位置。
 void ImgGraphicsView::setImage(
+    const QPixmap& pixmap,
+    const QTransform& currentToSourceTransform,
+    const QSize& sourceImageSize,
+    const QPoint& retainedSourcePixelPosition)
+{
+    if (pixmap.isNull())
+    {
+        return;
+    }
+
+    const bool hadImage = hasImage();
+    const QTransform retainedViewTransform = transform();
+    const QPointF retainedViewCenter =
+        mapToScene(viewport()->rect().center());
+    cancelDrawing();
+    clearDrawingSelection();
+    updateImageItems(pixmap, currentToSourceTransform, sourceImageSize);
+
+    if (m_roiItemPtr != nullptr)
+    {
+        const QRectF boundedRoiRect = m_roiItemPtr->rect().intersected(
+            m_pixmapItemPtr->sceneBoundingRect());
+        if (boundedRoiRect.isEmpty())
+        {
+            delete m_roiItemPtr;
+            m_roiItemPtr = nullptr;
+        }
+        else
+        {
+            m_roiItemPtr->setRect(boundedRoiRect);
+        }
+    }
+
+    if (QRect(QPoint(0, 0), m_sourceImageSize)
+            .contains(retainedSourcePixelPosition))
+    {
+        updatePickedPixel(retainedSourcePixelPosition);
+    }
+    else
+    {
+        clearPickedPixel();
+    }
+
+    m_isDrawing = false;
+    m_hasExceededDragThreshold = false;
+    m_isPanning = false;
+    if (!hadImage)
+    {
+        fitImageInView();
+        return;
+    }
+
+    setTransform(retainedViewTransform);
+    const QRectF imageSceneRect = m_pixmapItemPtr->sceneBoundingRect();
+    centerOn(QPointF(
+        qBound(imageSceneRect.left(),
+               retainedViewCenter.x(),
+               imageSceneRect.right()),
+        qBound(imageSceneRect.top(),
+               retainedViewCenter.y(),
+               imageSceneRect.bottom())));
+    updateOverlayAppearance();
+    viewport()->update();
+    emitCurrentZoom();
+}
+
+// 替换底图、清除全部覆盖内容并重新适配视图。
+void ImgGraphicsView::resetImage(
     const QPixmap& pixmap,
     const QTransform& currentToSourceTransform,
     const QSize& sourceImageSize)
 {
-    m_scenePtr->clear();
-    m_pixmapItemPtr = m_scenePtr->addPixmap(pixmap);
-    m_scenePtr->setSceneRect(m_pixmapItemPtr->sceneBoundingRect());
-    m_maskItemPtr = nullptr;
-    m_roiItemPtr = nullptr;
-    m_drawingPreviewItemPtr = nullptr;
-    m_pickItemPtr = nullptr;
-    m_pickHorizontalLinePtr = nullptr;
-    m_pickVerticalLinePtr = nullptr;
-    m_selectedDrawingItemPtr = nullptr;
-    m_drawingItems.clear();
-    m_currentToSourceTransform = currentToSourceTransform;
-    bool isInvertible = false;
-    m_sourceToCurrentTransform =
-        m_currentToSourceTransform.inverted(&isInvertible);
-    if (!isInvertible)
+    if (pixmap.isNull())
     {
-        m_sourceToCurrentTransform = QTransform();
+        return;
     }
-    m_sourceImageSize = sourceImageSize;
-    m_isDrawing = false;
-    m_hasExceededDragThreshold = false;
-    m_isPanning = false;
-    emit pixelPickCleared();
+
+    clearImageOverlays();
+    updateImageItems(pixmap, currentToSourceTransform, sourceImageSize);
     fitImageInView();
 }
 
@@ -89,6 +141,7 @@ void ImgGraphicsView::setMaskOverlayImage(const QImage& maskOverlayImage)
 
     m_maskItemPtr = m_scenePtr->addPixmap(
         QPixmap::fromImage(maskOverlayImage));
+    m_maskItemPtr->setParentItem(m_overlayRootItemPtr);
     m_maskItemPtr->setZValue(MASK_OVERLAY_Z_VALUE);
     m_maskItemPtr->setAcceptedMouseButtons(Qt::NoButton);
     viewport()->update();
@@ -250,6 +303,12 @@ QSize ImgGraphicsView::sourceImageSize() const
     return m_sourceImageSize;
 }
 
+// 返回当前ROI在画布中的场景坐标区域。
+QRectF ImgGraphicsView::currentRoiRect() const
+{
+    return m_roiItemPtr == nullptr ? QRectF() : m_roiItemPtr->rect();
+}
+
 // 按当前画布整数坐标生成不默认选中的直线。
 bool ImgGraphicsView::generateLineByParameters(
     const QPoint& startPosition,
@@ -279,6 +338,7 @@ bool ImgGraphicsView::generateLineByParameters(
     QGraphicsLineItem* lineItemPtr = m_scenePtr->addLine(
         QLineF(startPosition, endPosition),
         createOverlayPen(QColorConstants::Svg::skyblue));
+    lineItemPtr->setParentItem(m_overlayRootItemPtr);
     lineItemPtr->setFlag(QGraphicsItem::ItemIsSelectable, true);
     lineItemPtr->setZValue(1.0);
     m_drawingItems.append(DrawingItemRecord{ToolMode::Line, lineItemPtr});
@@ -313,6 +373,7 @@ bool ImgGraphicsView::generateCircleByParameters(
         circleRect,
         createOverlayPen(QColorConstants::Svg::skyblue),
         Qt::NoBrush);
+    circleItemPtr->setParentItem(m_overlayRootItemPtr);
     circleItemPtr->setFlag(QGraphicsItem::ItemIsSelectable, true);
     circleItemPtr->setZValue(1.0);
     m_drawingItems.append(DrawingItemRecord{ToolMode::Circle, circleItemPtr});
@@ -349,6 +410,7 @@ bool ImgGraphicsView::generateRectByParameters(
         rect,
         createOverlayPen(QColorConstants::Svg::skyblue),
         Qt::NoBrush);
+    rectItemPtr->setParentItem(m_overlayRootItemPtr);
     rectItemPtr->setFlag(QGraphicsItem::ItemIsSelectable, true);
     rectItemPtr->setZValue(1.0);
     m_drawingItems.append(DrawingItemRecord{ToolMode::Rect, rectItemPtr});
@@ -390,6 +452,73 @@ void ImgGraphicsView::wheelEvent(QWheelEvent* eventPtr)
     updateOverlayAppearance();
     viewport()->update();
     emitCurrentZoom();
+}
+
+// 更新底图、场景边界、覆盖裁剪区域和Pick坐标变换。
+void ImgGraphicsView::updateImageItems(
+    const QPixmap& pixmap,
+    const QTransform& currentToSourceTransform,
+    const QSize& sourceImageSize)
+{
+    if (m_pixmapItemPtr == nullptr)
+    {
+        m_pixmapItemPtr = m_scenePtr->addPixmap(pixmap);
+    }
+    else
+    {
+        m_pixmapItemPtr->setPixmap(pixmap);
+    }
+
+    const QRectF imageSceneRect = m_pixmapItemPtr->sceneBoundingRect();
+    m_scenePtr->setSceneRect(imageSceneRect);
+    if (m_overlayRootItemPtr == nullptr)
+    {
+        m_overlayRootItemPtr = m_scenePtr->addRect(
+            imageSceneRect,
+            QPen(Qt::NoPen),
+            Qt::NoBrush);
+        m_overlayRootItemPtr->setFlag(
+            QGraphicsItem::ItemClipsChildrenToShape,
+            true);
+    }
+    else
+    {
+        m_overlayRootItemPtr->setRect(imageSceneRect);
+    }
+
+    m_currentToSourceTransform = currentToSourceTransform;
+    bool isInvertible = false;
+    m_sourceToCurrentTransform =
+        m_currentToSourceTransform.inverted(&isInvertible);
+    if (!isInvertible)
+    {
+        m_sourceToCurrentTransform = QTransform();
+    }
+    m_sourceImageSize = sourceImageSize;
+}
+
+// 清除全部交互覆盖内容并保留当前工具模式。
+void ImgGraphicsView::clearImageOverlays()
+{
+    cancelDrawing();
+    if (m_overlayRootItemPtr != nullptr)
+    {
+        delete m_overlayRootItemPtr;
+        m_overlayRootItemPtr = nullptr;
+    }
+
+    m_maskItemPtr = nullptr;
+    m_roiItemPtr = nullptr;
+    m_drawingPreviewItemPtr = nullptr;
+    m_pickItemPtr = nullptr;
+    m_pickHorizontalLinePtr = nullptr;
+    m_pickVerticalLinePtr = nullptr;
+    m_selectedDrawingItemPtr = nullptr;
+    m_drawingItems.clear();
+    m_isDrawing = false;
+    m_hasExceededDragThreshold = false;
+    m_isPanning = false;
+    emit pixelPickCleared();
 }
 
 // 将当前图片按原图比例适配到视图。
@@ -565,6 +694,7 @@ void ImgGraphicsView::beginDrawing(
 
     if (m_drawingPreviewItemPtr != nullptr)
     {
+        m_drawingPreviewItemPtr->setParentItem(m_overlayRootItemPtr);
         m_drawingPreviewItemPtr->setZValue(2.0);
     }
 }
@@ -882,6 +1012,7 @@ void ImgGraphicsView::updatePickedPixel(const QPoint& sourcePixelPosition)
         m_pickHorizontalLinePtr = m_scenePtr->addLine(
             currentHorizontalLine,
             createOverlayPen(Qt::yellow));
+        m_pickHorizontalLinePtr->setParentItem(m_overlayRootItemPtr);
         m_pickHorizontalLinePtr->setZValue(2.5);
     }
     else
@@ -893,6 +1024,7 @@ void ImgGraphicsView::updatePickedPixel(const QPoint& sourcePixelPosition)
         m_pickVerticalLinePtr = m_scenePtr->addLine(
             currentVerticalLine,
             createOverlayPen(Qt::yellow));
+        m_pickVerticalLinePtr->setParentItem(m_overlayRootItemPtr);
         m_pickVerticalLinePtr->setZValue(2.5);
     }
     else
@@ -906,6 +1038,7 @@ void ImgGraphicsView::updatePickedPixel(const QPoint& sourcePixelPosition)
             QRectF(),
             QPen(Qt::NoPen),
             QBrush(QColorConstants::Svg::skyblue));
+        m_pickItemPtr->setParentItem(m_overlayRootItemPtr);
         m_pickItemPtr->setZValue(3.0);
     }
     updateOverlayAppearance();
